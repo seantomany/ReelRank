@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "ReelRank",
+    "slug": "reelrank",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0F0F1A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.reelrank.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0F1A"
+      },
+      "package": "com.reelrank.app"
+    },
+    "extra": {
+      "firebaseApiKey": "YOUR_FIREBASE_API_KEY",
+      "firebaseAuthDomain": "YOUR_PROJECT.firebaseapp.com",
+      "firebaseProjectId": "YOUR_PROJECT_ID",
+      "firebaseStorageBucket": "YOUR_PROJECT.appspot.com",
+      "firebaseMessagingSenderId": "YOUR_SENDER_ID",
+      "firebaseAppId": "YOUR_APP_ID",
+      "apiUrl": "http://localhost:3001",
+      "ablyKey": "YOUR_ABLY_PUBLIC_KEY"
+    },
+    "plugins": [
+      "expo-haptics"
+    ]
+  }
+}
