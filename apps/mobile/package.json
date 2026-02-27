@@ -4,13 +4,14 @@
   "private": true,
   "main": "App.tsx",
   "scripts": {
-    "start": "expo start",
-    "dev": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start": "NODE_OPTIONS='--no-experimental-strip-types' expo start",
+    "dev": "NODE_OPTIONS='--no-experimental-strip-types' expo start",
+    "android": "NODE_OPTIONS='--no-experimental-strip-types' expo start --android",
+    "ios": "NODE_OPTIONS='--no-experimental-strip-types' expo start --ios",
     "build": "echo 'Mobile build handled by EAS'"
   },
   "dependencies": {
+    "@babel/runtime": "^7.28.6",
     "@expo/vector-icons": "^14.0.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
@@ -24,6 +25,8 @@
     "expo-linear-gradient": "~14.0.0",
     "expo-status-bar": "~2.0.0",
     "firebase": "^11.2.0",
+    "hoist-non-react-statics": "^3.3.2",
+    "invariant": "^2.2.4",
     "react": "18.3.1",
     "react-native": "0.76.6",
     "react-native-gesture-handler": "~2.20.0",
@@ -31,7 +34,8 @@
     "react-native-reanimated": "~3.16.0",
     "react-native-safe-area-context": "4.12.0",
     "react-native-screens": "~4.4.0",
-    "react-native-svg": "15.8.0"
+    "react-native-svg": "15.8.0",
+    "react-native-url-polyfill": "^3.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
