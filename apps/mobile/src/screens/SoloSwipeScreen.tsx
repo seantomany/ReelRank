@@ -15,16 +15,20 @@ export default function SoloSwipeScreen({ navigation }: RootStackScreenProps<'So
   const deckRef = useRef<SwipeDeckRef>(null);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
   const [cardIndex, setCardIndex] = useState(0);
+  const pageRef = useRef(1);
+  const isFetchingRef = useRef(false);
 
   const loadMovies = useCallback(async (p: number) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const data = await api.movies.trending(p);
       setMovies((prev) => (p === 1 ? data.movies : [...prev, ...data.movies]));
     } catch (err) {
       console.error('Failed to load movies:', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -34,12 +38,11 @@ export default function SoloSwipeScreen({ navigation }: RootStackScreenProps<'So
   }, [loadMovies]);
 
   useEffect(() => {
-    if (cardIndex > 0 && cardIndex >= movies.length - 3) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      loadMovies(nextPage);
+    if (cardIndex > 0 && cardIndex >= movies.length - 3 && movies.length > 0) {
+      pageRef.current += 1;
+      loadMovies(pageRef.current);
     }
-  }, [cardIndex, movies.length, page, loadMovies]);
+  }, [cardIndex, movies.length, loadMovies]);
 
   const handleSwipe = useCallback(
     async (movie: Movie, direction: 'left' | 'right') => {
