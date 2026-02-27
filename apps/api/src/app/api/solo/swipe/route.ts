@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SoloSwipeInputSchema } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError } from '@/lib/errors';
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
@@ -16,17 +16,19 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
       );
     }
 
-    const swipe = await prisma.soloSwipe.upsert({
-      where: { userId_movieId: { userId: user.id, movieId: parsed.data.movieId } },
-      update: { direction: parsed.data.direction },
-      create: {
-        userId: user.id,
-        movieId: parsed.data.movieId,
-        direction: parsed.data.direction,
-      },
-    });
+    const docId = `${user.id}_${parsed.data.movieId}`;
+    const ref = db.collection(COLLECTIONS.soloSwipes).doc(docId);
 
-    return NextResponse.json({ data: swipe, requestId });
+    const data = {
+      userId: user.id,
+      movieId: parsed.data.movieId,
+      direction: parsed.data.direction,
+      createdAt: new Date(),
+    };
+
+    await ref.set(data, { merge: true });
+
+    return NextResponse.json({ data: { id: docId, ...data }, requestId });
   } catch (error) {
     const { status, body } = handleApiError(error, requestId);
     return NextResponse.json(body, { status });

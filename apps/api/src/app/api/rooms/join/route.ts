@@ -1,17 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JoinRoomInputSchema, ROOM_MAX_MEMBERS, ABLY_EVENTS } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
 import { withRateLimit } from '@/lib/rate-limit';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError } from '@/lib/errors';
 
-const ROOM_INCLUDE = {
-  members: {
-    include: { user: { select: { id: true, displayName: true, photoUrl: true } } },
-  },
-} as const;
+async function getRoomWithMembers(roomId: string) {
+  const roomSnap = await db.collection(COLLECTIONS.rooms).doc(roomId).get();
+  if (!roomSnap.exists) return null;
+
+  const roomData = roomSnap.data()!;
+  const membersSnap = await db.collection(COLLECTIONS.roomMembers(roomId)).get();
+
+  // Fetch user details for each member
+  const members = await Promise.all(
+    membersSnap.docs.map(async (m) => {
+      const memberData = m.data();
+      const userSnap = await db.collection(COLLECTIONS.users).doc(memberData.userId).get();
+      const userData = userSnap.data();
+      return {
+        id: m.id,
+        roomId,
+        userId: memberData.userId,
+        user: userData
+          ? { id: userSnap.id, displayName: userData.displayName ?? null, photoUrl: userData.photoUrl ?? null }
+          : undefined,
+        joinedAt: memberData.joinedAt?.toDate?.() ?? memberData.joinedAt,
+      };
+    }),
+  );
+
+  return {
+    id: roomId,
+    ...roomData,
+    createdAt: roomData.createdAt?.toDate?.() ?? roomData.createdAt,
+    updatedAt: roomData.updatedAt?.toDate?.() ?? roomData.updatedAt,
+    members,
+  };
+}
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
@@ -33,39 +61,38 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
       return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
     }
 
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      include: { members: true },
-    });
+    const roomSnap = await db.collection(COLLECTIONS.rooms).doc(roomId).get();
+    if (!roomSnap.exists) {
+      return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
+    }
 
-    if (!room || room.status !== 'lobby') {
+    const roomData = roomSnap.data()!;
+    if (roomData.status !== 'lobby') {
       return NextResponse.json(
         { error: 'Room is not accepting new members', requestId },
         { status: 400 },
       );
     }
 
-    if (room.members.length >= ROOM_MAX_MEMBERS) {
+    const membersSnap = await db.collection(COLLECTIONS.roomMembers(roomId)).get();
+    if (membersSnap.size >= ROOM_MAX_MEMBERS) {
       return NextResponse.json({ error: 'Room is full', requestId }, { status: 400 });
     }
 
-    const alreadyJoined = room.members.some((m) => m.userId === user.id);
+    const alreadyJoined = membersSnap.docs.some((m) => m.id === user.id);
     if (!alreadyJoined) {
-      await prisma.roomMember.create({
-        data: { roomId: room.id, userId: user.id },
+      await db.collection(COLLECTIONS.roomMembers(roomId)).doc(user.id).set({
+        userId: user.id,
+        joinedAt: new Date(),
       });
 
-      await publishToRoom(room.code, ABLY_EVENTS.MEMBER_JOINED, {
+      await publishToRoom(roomData.code, ABLY_EVENTS.MEMBER_JOINED, {
         userId: user.id,
         displayName: user.displayName,
       });
     }
 
-    const updatedRoom = await prisma.room.findUnique({
-      where: { id: roomId },
-      include: ROOM_INCLUDE,
-    });
-
+    const updatedRoom = await getRoomWithMembers(roomId);
     return NextResponse.json({ data: updatedRoom, requestId });
   } catch (error) {
     const { status, body } = handleApiError(error, requestId);

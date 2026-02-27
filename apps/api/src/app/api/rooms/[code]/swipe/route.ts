@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RoomSwipeInputSchema, ABLY_EVENTS } from '@reelrank/shared';
 import { authenticateRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId, createApiError } from '@/lib/errors';
 
@@ -24,42 +24,47 @@ export async function POST(
       );
     }
 
-    const room = await prisma.room.findUnique({
-      where: { code },
-      include: { members: true, movies: true, swipes: true },
-    });
+    // Find room by code
+    const roomsSnap = await db.collection(COLLECTIONS.rooms)
+      .where('code', '==', code)
+      .limit(1)
+      .get();
 
-    if (!room) {
+    if (roomsSnap.empty) {
       return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
     }
 
-    if (room.status !== 'swiping') {
+    const roomDoc = roomsSnap.docs[0];
+    const roomId = roomDoc.id;
+    const roomData = roomDoc.data();
+
+    if (roomData.status !== 'swiping') {
       throw createApiError(400, 'Room is not in swiping phase', requestId);
     }
 
-    if (!room.members.some((m) => m.userId === user.id)) {
+    // Check membership
+    const membersSnap = await db.collection(COLLECTIONS.roomMembers(roomId)).get();
+    if (!membersSnap.docs.some((m) => m.id === user.id)) {
       throw createApiError(403, 'You are not a member of this room', requestId);
     }
 
-    const swipe = await prisma.roomSwipe.upsert({
-      where: {
-        roomId_userId_movieId: {
-          roomId: room.id,
-          userId: user.id,
-          movieId: parsed.data.movieId,
-        },
-      },
-      update: { direction: parsed.data.direction },
-      create: {
-        roomId: room.id,
-        userId: user.id,
-        movieId: parsed.data.movieId,
-        direction: parsed.data.direction,
-      },
-    });
+    // Upsert swipe using deterministic doc ID
+    const swipeDocId = `${user.id}_${parsed.data.movieId}`;
+    const swipeData = {
+      roomId,
+      userId: user.id,
+      movieId: parsed.data.movieId,
+      direction: parsed.data.direction,
+      createdAt: new Date(),
+    };
 
-    const totalExpected = room.members.length * room.movies.length;
-    const totalSwipes = room.swipes.length + 1;
+    await db.collection(COLLECTIONS.roomSwipes(roomId)).doc(swipeDocId).set(swipeData);
+
+    // Calculate progress
+    const moviesSnap = await db.collection(COLLECTIONS.roomMovies(roomId)).get();
+    const swipesSnap = await db.collection(COLLECTIONS.roomSwipes(roomId)).get();
+    const totalExpected = membersSnap.size * moviesSnap.size;
+    const totalSwipes = swipesSnap.size;
     const progress = Math.min(totalSwipes / totalExpected, 1);
 
     await publishToRoom(code, ABLY_EVENTS.SWIPE_PROGRESS, {
@@ -69,7 +74,7 @@ export async function POST(
       totalExpected,
     });
 
-    return NextResponse.json({ data: { swipe, progress }, requestId });
+    return NextResponse.json({ data: { swipe: { id: swipeDocId, ...swipeData }, progress }, requestId });
   } catch (error) {
     const { status, body } = handleApiError(error, requestId);
     return NextResponse.json(body, { status });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ALGORITHM_VERSIONS, ABLY_EVENTS } from '@reelrank/shared';
 import { authenticateRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId } from '@/lib/errors';
@@ -56,21 +56,30 @@ export async function GET(
     await authenticateRequest(req);
     const { code } = await params;
 
-    const room = await prisma.room.findUnique({
-      where: { code },
-      include: {
-        members: true,
-        movies: true,
-        swipes: true,
-        results: { orderBy: { computedAt: 'desc' }, take: 1 },
-      },
-    });
+    // Find room by code
+    const roomsSnap = await db.collection(COLLECTIONS.rooms)
+      .where('code', '==', code)
+      .limit(1)
+      .get();
 
-    if (!room) {
+    if (roomsSnap.empty) {
       return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
     }
 
-    const movieIds = room.movies.map((m) => m.movieId);
+    const roomDoc = roomsSnap.docs[0];
+    const roomId = roomDoc.id;
+    const roomData = roomDoc.data();
+
+    // Fetch subcollections
+    const [membersSnap, moviesSnap, swipesSnap] = await Promise.all([
+      db.collection(COLLECTIONS.roomMembers(roomId)).get(),
+      db.collection(COLLECTIONS.roomMovies(roomId)).get(),
+      db.collection(COLLECTIONS.roomSwipes(roomId)).get(),
+    ]);
+
+    const swipes = swipesSnap.docs.map((d) => d.data() as { movieId: number; direction: string });
+    const movieIds = moviesSnap.docs.map((m) => (m.data() as { movieId: number }).movieId);
+
     const movies = await Promise.all(
       movieIds.map((id) => getMovieById(id).catch(() => null)),
     );
@@ -83,30 +92,35 @@ export async function GET(
     );
 
     const rankedMovies = computeSimpleMajority(
-      room.swipes,
-      room.members.length,
+      swipes,
+      membersSnap.size,
       movieDetails,
     ).map((score) => ({
       ...score,
       movie: movieMap.get(score.movieId)!,
     })).filter((r) => r.movie);
 
-    const result = await prisma.roomResult.create({
-      data: {
-        roomId: room.id,
-        algorithmVersion: ALGORITHM_VERSIONS.SIMPLE_MAJORITY,
-        rankedMovieIds: rankedMovies.map((r) => r.movieId),
-        scoreBreakdown: rankedMovies as unknown as Record<string, unknown>[],
-      },
-    });
+    // Save result
+    const resultData = {
+      roomId,
+      algorithmVersion: ALGORITHM_VERSIONS.SIMPLE_MAJORITY,
+      rankedMovieIds: rankedMovies.map((r) => r.movieId),
+      scoreBreakdown: rankedMovies as unknown as Record<string, unknown>[],
+      computedAt: new Date(),
+    };
 
-    if (room.status === 'swiping') {
-      await prisma.room.update({ where: { code }, data: { status: 'results' } });
-      await publishToRoom(code, ABLY_EVENTS.RESULTS_READY, { resultId: result.id });
+    const resultRef = await db.collection(COLLECTIONS.roomResults(roomId)).add(resultData);
+
+    if (roomData.status === 'swiping') {
+      await db.collection(COLLECTIONS.rooms).doc(roomId).update({
+        status: 'results',
+        updatedAt: new Date(),
+      });
+      await publishToRoom(code, ABLY_EVENTS.RESULTS_READY, { resultId: resultRef.id });
     }
 
     return NextResponse.json({
-      data: { id: result.id, roomId: room.id, rankedMovies, algorithmVersion: result.algorithmVersion },
+      data: { id: resultRef.id, roomId, rankedMovies, algorithmVersion: ALGORITHM_VERSIONS.SIMPLE_MAJORITY },
       requestId,
     });
   } catch (error) {

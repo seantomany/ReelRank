@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ELO_INITIAL_RATING, ELO_K_FACTOR } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { handleApiError } from '@/lib/errors';
 import type { SoloRanking } from '@reelrank/shared';
@@ -35,15 +35,19 @@ function computeEloRatings(
 
 export const GET = withAuth(async (_req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
-    const [choices, swipes] = await Promise.all([
-      prisma.pairwiseChoice.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'asc' },
-      }),
-      prisma.soloSwipe.findMany({
-        where: { userId: user.id, direction: 'right' },
-      }),
+    const [choicesSnap, swipesSnap] = await Promise.all([
+      db.collection(COLLECTIONS.pairwiseChoices)
+        .where('userId', '==', user.id)
+        .orderBy('createdAt', 'asc')
+        .get(),
+      db.collection(COLLECTIONS.soloSwipes)
+        .where('userId', '==', user.id)
+        .where('direction', '==', 'right')
+        .get(),
     ]);
+
+    const choices = choicesSnap.docs.map((d) => d.data() as { movieAId: number; movieBId: number; chosenId: number });
+    const swipes = swipesSnap.docs.map((d) => d.data() as { movieId: number });
 
     const eloRatings = computeEloRatings(choices);
     const likedMovieIds = new Set(swipes.map((s) => s.movieId));

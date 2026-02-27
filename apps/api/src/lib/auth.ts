@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from './firebase-admin';
-import { prisma } from './prisma';
+import { db, COLLECTIONS } from './firestore';
 import { createApiError, createRequestId, handleApiError } from './errors';
 import type { User } from '@reelrank/shared';
 
@@ -27,33 +27,38 @@ export async function authenticateRequest(req: NextRequest): Promise<Authenticat
     throw createApiError(401, 'Invalid or expired token', requestId);
   }
 
-  let user = await prisma.user.findUnique({
-    where: { firebaseUid: decodedToken.uid },
-  });
+  // Use firebaseUid as document ID for fast lookups
+  const userRef = db.collection(COLLECTIONS.users).doc(decodedToken.uid);
+  const userSnap = await userRef.get();
 
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        firebaseUid: decodedToken.uid,
-        email: decodedToken.email ?? `${decodedToken.uid}@unknown.com`,
-        displayName: decodedToken.name ?? null,
-        photoUrl: decodedToken.picture ?? null,
-      },
-    });
+  let userData: User;
+
+  if (userSnap.exists) {
+    const d = userSnap.data()!;
+    userData = {
+      id: userSnap.id,
+      firebaseUid: d.firebaseUid,
+      email: d.email,
+      displayName: d.displayName ?? null,
+      photoUrl: d.photoUrl ?? null,
+      createdAt: d.createdAt?.toDate() ?? new Date(),
+      updatedAt: d.updatedAt?.toDate() ?? new Date(),
+    };
+  } else {
+    const now = new Date();
+    const newUser = {
+      firebaseUid: decodedToken.uid,
+      email: decodedToken.email ?? `${decodedToken.uid}@unknown.com`,
+      displayName: decodedToken.name ?? null,
+      photoUrl: decodedToken.picture ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await userRef.set(newUser);
+    userData = { id: decodedToken.uid, ...newUser };
   }
 
-  return {
-    user: {
-      id: user.id,
-      firebaseUid: user.firebaseUid,
-      email: user.email,
-      displayName: user.displayName,
-      photoUrl: user.photoUrl,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    },
-    requestId,
-  };
+  return { user: userData, requestId };
 }
 
 export function withAuth<C = unknown>(

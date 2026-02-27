@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PairwiseChoiceInputSchema } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError } from '@/lib/errors';
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
@@ -16,16 +16,17 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
       );
     }
 
-    const choice = await prisma.pairwiseChoice.create({
-      data: {
-        userId: user.id,
-        movieAId: parsed.data.movieAId,
-        movieBId: parsed.data.movieBId,
-        chosenId: parsed.data.chosenId,
-      },
-    });
+    const data = {
+      userId: user.id,
+      movieAId: parsed.data.movieAId,
+      movieBId: parsed.data.movieBId,
+      chosenId: parsed.data.chosenId,
+      createdAt: new Date(),
+    };
 
-    return NextResponse.json({ data: choice, requestId });
+    const ref = await db.collection(COLLECTIONS.pairwiseChoices).add(data);
+
+    return NextResponse.json({ data: { id: ref.id, ...data }, requestId });
   } catch (error) {
     const { status, body } = handleApiError(error, requestId);
     return NextResponse.json(body, { status });

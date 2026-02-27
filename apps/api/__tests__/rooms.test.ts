@@ -1,16 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ROOM_CODE_LENGTH, ALGORITHM_VERSIONS } from '@reelrank/shared';
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    room: {
-      create: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    roomMember: { create: vi.fn() },
-    roomSwipe: { upsert: vi.fn() },
-    roomResult: { create: vi.fn() },
+vi.mock('@/lib/firestore', () => ({
+  db: {
+    collection: vi.fn().mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false }),
+        set: vi.fn().mockResolvedValue(undefined),
+      }),
+      add: vi.fn().mockResolvedValue({ id: 'mock-id' }),
+      get: vi.fn().mockResolvedValue({ docs: [], size: 0, empty: true }),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+    }),
+  },
+  COLLECTIONS: {
+    users: 'users',
+    soloSwipes: 'soloSwipes',
+    pairwiseChoices: 'pairwiseChoices',
+    rooms: 'rooms',
+    roomMembers: (id: string) => `rooms/${id}/members`,
+    roomMovies: (id: string) => `rooms/${id}/movies`,
+    roomSwipes: (id: string) => `rooms/${id}/swipes`,
+    roomResults: (id: string) => `rooms/${id}/results`,
   },
 }));
 

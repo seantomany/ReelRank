@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ROOM_CODE_LENGTH } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { db, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
 import { handleApiError } from '@/lib/errors';
 
@@ -33,21 +33,40 @@ export const POST = withAuth(async (_req: NextRequest, { user, requestId }: Auth
       );
     }
 
-    const room = await prisma.room.create({
-      data: {
-        code,
-        hostId: user.id,
-        status: 'lobby',
-        members: { create: { userId: user.id } },
-      },
-      include: {
-        members: {
-          include: { user: { select: { id: true, displayName: true, photoUrl: true } } },
-        },
-      },
+    const now = new Date();
+    const roomData = {
+      code,
+      hostId: user.id,
+      status: 'lobby',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const roomRef = await db.collection(COLLECTIONS.rooms).add(roomData);
+    const roomId = roomRef.id;
+
+    // Add host as first member
+    await db.collection(COLLECTIONS.roomMembers(roomId)).doc(user.id).set({
+      userId: user.id,
+      joinedAt: now,
     });
 
-    await redis.set(`room:${code}`, room.id, { ex: 86400 });
+    // Cache room code → room ID in Redis
+    await redis.set(`room:${code}`, roomId, { ex: 86400 });
+
+    const room = {
+      id: roomId,
+      ...roomData,
+      members: [
+        {
+          id: user.id,
+          roomId,
+          userId: user.id,
+          user: { id: user.id, displayName: user.displayName, photoUrl: user.photoUrl },
+          joinedAt: now,
+        },
+      ],
+    };
 
     return NextResponse.json({ data: room, requestId }, { status: 201 });
   } catch (error) {
