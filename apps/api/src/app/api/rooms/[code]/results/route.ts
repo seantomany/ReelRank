@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ALGORITHM_VERSIONS, ABLY_EVENTS } from '@reelrank/shared';
 import { authenticateRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId } from '@/lib/errors';
@@ -57,7 +57,7 @@ export async function GET(
     const { code } = await params;
 
     // Find room by code
-    const roomsSnap = await db.collection(COLLECTIONS.rooms)
+    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
       .where('code', '==', code)
       .limit(1)
       .get();
@@ -72,9 +72,9 @@ export async function GET(
 
     // Fetch subcollections
     const [membersSnap, moviesSnap, swipesSnap] = await Promise.all([
-      db.collection(COLLECTIONS.roomMembers(roomId)).get(),
-      db.collection(COLLECTIONS.roomMovies(roomId)).get(),
-      db.collection(COLLECTIONS.roomSwipes(roomId)).get(),
+      getDb().collection(COLLECTIONS.roomMembers(roomId)).get(),
+      getDb().collection(COLLECTIONS.roomMovies(roomId)).get(),
+      getDb().collection(COLLECTIONS.roomSwipes(roomId)).get(),
     ]);
 
     const swipes = swipesSnap.docs.map((d) => d.data() as { movieId: number; direction: string });
@@ -109,10 +109,10 @@ export async function GET(
       computedAt: new Date(),
     };
 
-    const resultRef = await db.collection(COLLECTIONS.roomResults(roomId)).add(resultData);
+    const resultRef = await getDb().collection(COLLECTIONS.roomResults(roomId)).add(resultData);
 
     if (roomData.status === 'swiping') {
-      await db.collection(COLLECTIONS.rooms).doc(roomId).update({
+      await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
         status: 'results',
         updatedAt: new Date(),
       });

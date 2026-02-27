@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SoloSwipeInputSchema } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError } from '@/lib/errors';
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
@@ -17,7 +17,7 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
     }
 
     const docId = `${user.id}_${parsed.data.movieId}`;
-    const ref = db.collection(COLLECTIONS.soloSwipes).doc(docId);
+    const ref = getDb().collection(COLLECTIONS.soloSwipes).doc(docId);
 
     const data = {
       userId: user.id,

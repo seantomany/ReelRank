@@ -2,7 +2,7 @@
   "name": "@reelrank/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "App.tsx",
+  "main": "index.js",
   "scripts": {
     "start": "NODE_OPTIONS='--no-experimental-strip-types' expo start",
     "dev": "NODE_OPTIONS='--no-experimental-strip-types' expo start",
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@types/react": "~18.3.0",
+    "dotenv": "^17.3.1",
     "typescript": "^5.7.0"
   }
 }

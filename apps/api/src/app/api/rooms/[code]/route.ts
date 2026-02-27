@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError, createRequestId } from '@/lib/errors';
 
 export async function GET(
@@ -14,7 +14,7 @@ export async function GET(
     const { code } = await params;
 
     // Find room by code
-    const roomsSnap = await db.collection(COLLECTIONS.rooms)
+    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
       .where('code', '==', code)
       .limit(1)
       .get();
@@ -28,11 +28,11 @@ export async function GET(
     const roomData = roomDoc.data();
 
     // Fetch members with user details
-    const membersSnap = await db.collection(COLLECTIONS.roomMembers(roomId)).get();
+    const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
     const members = await Promise.all(
       membersSnap.docs.map(async (m) => {
         const memberData = m.data();
-        const userSnap = await db.collection(COLLECTIONS.users).doc(memberData.userId).get();
+        const userSnap = await getDb().collection(COLLECTIONS.users).doc(memberData.userId).get();
         const userData = userSnap.data();
         return {
           id: m.id,
@@ -47,7 +47,7 @@ export async function GET(
     );
 
     // Fetch movies
-    const moviesSnap = await db.collection(COLLECTIONS.roomMovies(roomId)).get();
+    const moviesSnap = await getDb().collection(COLLECTIONS.roomMovies(roomId)).get();
     const movies = moviesSnap.docs.map((m) => ({
       id: m.id,
       roomId,

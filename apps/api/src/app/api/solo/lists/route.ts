@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { handleApiError } from '@/lib/errors';
 
@@ -9,12 +9,12 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }: Authen
     const { searchParams } = new URL(req.url);
     const listType = searchParams.get('type') ?? 'want';
 
-    let query = db.collection(COLLECTIONS.soloSwipes)
+    let query = getDb().collection(COLLECTIONS.soloSwipes)
       .where('userId', '==', user.id)
       .orderBy('createdAt', 'desc');
 
     if (listType === 'want') {
-      query = db.collection(COLLECTIONS.soloSwipes)
+      query = getDb().collection(COLLECTIONS.soloSwipes)
         .where('userId', '==', user.id)
         .where('direction', '==', 'right')
         .orderBy('createdAt', 'desc');

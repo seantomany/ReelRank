@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ELO_INITIAL_RATING, ELO_K_FACTOR } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { handleApiError } from '@/lib/errors';
 import type { SoloRanking } from '@reelrank/shared';
@@ -36,11 +36,11 @@ function computeEloRatings(
 export const GET = withAuth(async (_req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
     const [choicesSnap, swipesSnap] = await Promise.all([
-      db.collection(COLLECTIONS.pairwiseChoices)
+      getDb().collection(COLLECTIONS.pairwiseChoices)
         .where('userId', '==', user.id)
         .orderBy('createdAt', 'asc')
         .get(),
-      db.collection(COLLECTIONS.soloSwipes)
+      getDb().collection(COLLECTIONS.soloSwipes)
         .where('userId', '==', user.id)
         .where('direction', '==', 'right')
         .get(),

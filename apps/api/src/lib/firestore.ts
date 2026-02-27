@@ -12,11 +12,11 @@ function initFirestore(): Firestore {
   return fs;
 }
 
-export const db =
-  globalForFirestore.firestore ?? initFirestore();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForFirestore.firestore = db;
+export function getDb(): Firestore {
+  if (!globalForFirestore.firestore) {
+    globalForFirestore.firestore = initFirestore();
+  }
+  return globalForFirestore.firestore;
 }
 
 // Collection references

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from './firebase-admin';
-import { db, COLLECTIONS } from './firestore';
+import { getDb, COLLECTIONS } from './firestore';
 import { createApiError, createRequestId, handleApiError } from './errors';
 import type { User } from '@reelrank/shared';
 
@@ -28,7 +28,7 @@ export async function authenticateRequest(req: NextRequest): Promise<Authenticat
   }
 
   // Use firebaseUid as document ID for fast lookups
-  const userRef = db.collection(COLLECTIONS.users).doc(decodedToken.uid);
+  const userRef = getDb().collection(COLLECTIONS.users).doc(decodedToken.uid);
   const userSnap = await userRef.get();
 
   let userData: User;

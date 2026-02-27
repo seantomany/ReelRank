@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitMovieInputSchema, ROOM_MAX_MOVIES, ABLY_EVENTS } from '@reelrank/shared';
 import { authenticateRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId, createApiError } from '@/lib/errors';
 
@@ -25,7 +25,7 @@ export async function POST(
     }
 
     // Find room by code
-    const roomsSnap = await db.collection(COLLECTIONS.rooms)
+    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
       .where('code', '==', code)
       .limit(1)
       .get();
@@ -43,20 +43,20 @@ export async function POST(
     }
 
     // Check membership
-    const membersSnap = await db.collection(COLLECTIONS.roomMembers(roomId)).get();
+    const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
     if (!membersSnap.docs.some((m) => m.id === user.id)) {
       throw createApiError(403, 'You are not a member of this room', requestId);
     }
 
     // Check movie count
-    const moviesSnap = await db.collection(COLLECTIONS.roomMovies(roomId)).get();
+    const moviesSnap = await getDb().collection(COLLECTIONS.roomMovies(roomId)).get();
     if (moviesSnap.size >= ROOM_MAX_MOVIES) {
       throw createApiError(400, 'Maximum movies reached for this room', requestId);
     }
 
     // Check if movie already submitted (use movieId as doc ID)
     const movieDocId = String(parsed.data.movieId);
-    const existingMovie = await db.collection(COLLECTIONS.roomMovies(roomId)).doc(movieDocId).get();
+    const existingMovie = await getDb().collection(COLLECTIONS.roomMovies(roomId)).doc(movieDocId).get();
     if (existingMovie.exists) {
       return NextResponse.json(
         { error: 'Movie already submitted', requestId },
@@ -71,7 +71,7 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    await db.collection(COLLECTIONS.roomMovies(roomId)).doc(movieDocId).set(movieData);
+    await getDb().collection(COLLECTIONS.roomMovies(roomId)).doc(movieDocId).set(movieData);
 
     await publishToRoom(code, ABLY_EVENTS.MOVIE_SUBMITTED, {
       movieId: parsed.data.movieId,

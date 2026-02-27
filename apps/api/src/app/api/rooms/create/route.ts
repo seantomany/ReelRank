@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ROOM_CODE_LENGTH } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
 import { handleApiError } from '@/lib/errors';
 
@@ -42,11 +42,11 @@ export const POST = withAuth(async (_req: NextRequest, { user, requestId }: Auth
       updatedAt: now,
     };
 
-    const roomRef = await db.collection(COLLECTIONS.rooms).add(roomData);
+    const roomRef = await getDb().collection(COLLECTIONS.rooms).add(roomData);
     const roomId = roomRef.id;
 
     // Add host as first member
-    await db.collection(COLLECTIONS.roomMembers(roomId)).doc(user.id).set({
+    await getDb().collection(COLLECTIONS.roomMembers(roomId)).doc(user.id).set({
       userId: user.id,
       joinedAt: now,
     });

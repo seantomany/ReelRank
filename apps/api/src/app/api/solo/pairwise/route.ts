@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PairwiseChoiceInputSchema } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
-import { db, COLLECTIONS } from '@/lib/firestore';
+import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError } from '@/lib/errors';
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
@@ -24,7 +24,7 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
       createdAt: new Date(),
     };
 
-    const ref = await db.collection(COLLECTIONS.pairwiseChoices).add(data);
+    const ref = await getDb().collection(COLLECTIONS.pairwiseChoices).add(data);
 
     return NextResponse.json({ data: { id: ref.id, ...data }, requestId });
   } catch (error) {
