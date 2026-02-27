@@ -12,8 +12,11 @@ import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SoloSwipeScreen from '../screens/SoloSwipeScreen';
+import SearchScreen from '../screens/SearchScreen';
 import ThisOrThatScreen from '../screens/ThisOrThatScreen';
 import MovieDetailScreen from '../screens/MovieDetailScreen';
+import LogWatchedScreen from '../screens/LogWatchedScreen';
+import GroupScreen from '../screens/GroupScreen';
 import CreateRoomScreen from '../screens/CreateRoomScreen';
 import JoinRoomScreen from '../screens/JoinRoomScreen';
 import LobbyScreen from '../screens/LobbyScreen';
@@ -36,11 +39,28 @@ const navigationTheme = {
   },
 };
 
+const TAB_ICONS: Record<keyof MainTabParamList, { focused: string; default: string }> = {
+  Home: { focused: 'home', default: 'home-outline' },
+  Solo: { focused: 'film', default: 'film-outline' },
+  Group: { focused: 'people', default: 'people-outline' },
+  Profile: { focused: 'person', default: 'person-outline' },
+};
+
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons = TAB_ICONS[route.name];
+          return (
+            <Ionicons
+              name={(focused ? icons.focused : icons.default) as any}
+              size={size}
+              color={color}
+            />
+          );
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
@@ -51,27 +71,13 @@ function MainTabs() {
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
-      }}
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+      })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="film-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Solo" component={SoloSwipeScreen} options={{ tabBarLabel: 'Discover' }} />
+      <Tab.Screen name="Group" component={GroupScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -103,8 +109,10 @@ export function RootNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
             <Stack.Screen name="SoloSwipe" component={SoloSwipeScreen} options={{ title: 'Discover Movies' }} />
+            <Stack.Screen name="Search" component={SearchScreen} options={{ title: 'Search Movies' }} />
             <Stack.Screen name="ThisOrThat" component={ThisOrThatScreen} options={{ title: 'This or That' }} />
             <Stack.Screen name="MovieDetail" component={MovieDetailScreen} options={{ title: '' }} />
+            <Stack.Screen name="LogWatched" component={LogWatchedScreen} options={{ title: 'Log Movie' }} />
             <Stack.Screen name="CreateRoom" component={CreateRoomScreen} options={{ title: 'Create Room' }} />
             <Stack.Screen name="JoinRoom" component={JoinRoomScreen} options={{ title: 'Join Room' }} />
             <Stack.Screen name="Lobby" component={LobbyScreen} options={{ title: 'Lobby' }} />

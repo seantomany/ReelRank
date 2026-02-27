@@ -107,6 +107,26 @@ export interface SoloRanking {
   rank: number;
 }
 
+export interface WatchedMovie {
+  id: string;
+  userId: string;
+  movieId: number;
+  rating: number;
+  watchedAt: string;
+  venue: string;
+  notes?: string;
+  movie?: Movie;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MovieUserStatus {
+  swipeDirection?: SwipeDirection;
+  watched?: WatchedMovie;
+  eloScore?: number;
+  rank?: number;
+}
+
 export interface ApiResponse<T> {
   data?: T;
   error?: string;

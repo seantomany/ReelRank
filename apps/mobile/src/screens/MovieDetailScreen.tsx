@@ -7,29 +7,56 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TMDB_IMAGE_BASE_URL, TMDB_POSTER_SIZES } from '@reelrank/shared';
-import type { Movie } from '@reelrank/shared';
+import type { Movie, MovieUserStatus } from '@reelrank/shared';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import type { RootStackScreenProps } from '../navigation/types';
 import { colors, spacing, borderRadius, typography } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function MovieDetailScreen({ route }: RootStackScreenProps<'MovieDetail'>) {
+export default function MovieDetailScreen({ route, navigation }: RootStackScreenProps<'MovieDetail'>) {
   const { movieId } = route.params;
+  const { getIdToken } = useAuth();
   const [movie, setMovie] = useState<Movie | null>(null);
+  const [userStatus, setUserStatus] = useState<MovieUserStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.movies
-      .getById(movieId)
-      .then(setMovie)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [movieId]);
+    const load = async () => {
+      try {
+        const movieData = await api.movies.getById(movieId);
+        setMovie(movieData);
+        const token = await getIdToken();
+        if (token) {
+          const status = await api.solo.movieStatus(movieId, token);
+          setUserStatus(status);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [movieId, getIdToken]);
+
+  const handleSaveToWatchlist = async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      await api.solo.swipe(movieId, 'right', token);
+      setUserStatus((prev) => ({ ...prev, swipeDirection: 'right' }));
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    }
+  };
 
   if (loading || !movie) {
     return (
@@ -48,6 +75,9 @@ export default function MovieDetailScreen({ route }: RootStackScreenProps<'Movie
 
   const popularityTier =
     movie.popularity > 100 ? 'Trending' : movie.popularity > 50 ? 'Popular' : 'Niche';
+
+  const isOnWatchlist = userStatus?.swipeDirection === 'right';
+  const isWatched = !!userStatus?.watched;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -76,6 +106,62 @@ export default function MovieDetailScreen({ route }: RootStackScreenProps<'Movie
           </View>
         </View>
 
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, isOnWatchlist && styles.actionBtnActive]}
+            onPress={handleSaveToWatchlist}
+          >
+            <Ionicons
+              name={isOnWatchlist ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={isOnWatchlist ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.actionBtnText, isOnWatchlist && styles.actionBtnTextActive]}>
+              {isOnWatchlist ? 'Saved' : 'Watchlist'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, isWatched && styles.actionBtnWatched]}
+            onPress={() => navigation.navigate('LogWatched', { movieId: movie.id, movieTitle: movie.title })}
+          >
+            <Ionicons
+              name={isWatched ? 'eye' : 'eye-outline'}
+              size={18}
+              color={isWatched ? colors.success : colors.textSecondary}
+            />
+            <Text style={[styles.actionBtnText, isWatched && styles.actionBtnTextWatched]}>
+              {isWatched ? 'Watched' : 'Log It'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {isWatched && userStatus?.watched && (
+          <View style={styles.watchedCard}>
+            <View style={styles.watchedHeader}>
+              <Ionicons name="eye" size={16} color={colors.success} />
+              <Text style={styles.watchedTitle}>Your Log</Text>
+            </View>
+            <View style={styles.watchedDetails}>
+              <View style={styles.watchedDetail}>
+                <Text style={styles.watchedLabel}>Rating</Text>
+                <Text style={styles.watchedValue}>{userStatus.watched.rating}/10</Text>
+              </View>
+              <View style={styles.watchedDetail}>
+                <Text style={styles.watchedLabel}>Venue</Text>
+                <Text style={styles.watchedValue}>{userStatus.watched.venue}</Text>
+              </View>
+              <View style={styles.watchedDetail}>
+                <Text style={styles.watchedLabel}>Date</Text>
+                <Text style={styles.watchedValue}>{userStatus.watched.watchedAt?.slice(0, 10)}</Text>
+              </View>
+            </View>
+            {userStatus.watched.notes ? (
+              <Text style={styles.watchedNotes}>{userStatus.watched.notes}</Text>
+            ) : null}
+          </View>
+        )}
+
         <View style={styles.statsRow}>
           <StatBadge
             icon="star"
@@ -94,10 +180,10 @@ export default function MovieDetailScreen({ route }: RootStackScreenProps<'Movie
         {movie.popularity > 80 && (
           <View style={styles.trendingCard}>
             <Ionicons name="flame" size={18} color={colors.accent} />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.trendingTitle}>Why it's trending</Text>
               <Text style={styles.trendingDesc}>
-                High search volume and engagement — {movie.voteCount.toLocaleString()} people have
+                High engagement — {movie.voteCount.toLocaleString()} people have
                 rated this movie with a {movie.voteAverage.toFixed(1)} average score.
               </Text>
             </View>
@@ -164,7 +250,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   poster: {
     width: 100,
@@ -183,6 +269,81 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionBtnActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}15`,
+  },
+  actionBtnWatched: {
+    borderColor: colors.success,
+    backgroundColor: `${colors.success}15`,
+  },
+  actionBtnText: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  actionBtnTextActive: {
+    color: colors.primary,
+  },
+  actionBtnTextWatched: {
+    color: colors.success,
+  },
+  watchedCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: `${colors.success}30`,
+  },
+  watchedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  watchedTitle: {
+    ...typography.label,
+    color: colors.success,
+  },
+  watchedDetails: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  watchedDetail: {
+    gap: 2,
+  },
+  watchedLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  watchedValue: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  watchedNotes: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
   },
   statsRow: {
     flexDirection: 'row',

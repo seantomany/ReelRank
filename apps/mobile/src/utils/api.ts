@@ -1,5 +1,5 @@
 import { API_URL } from '../config/api';
-import type { ApiResponse, Movie, Room, SoloRanking, MovieScore } from '@reelrank/shared';
+import type { ApiResponse, Movie, Room, SoloRanking, MovieScore, WatchedMovie, MovieUserStatus } from '@reelrank/shared';
 
 type FetchOptions = RequestInit & { token?: string };
 
@@ -65,6 +65,19 @@ export const api = {
 
     lists: (type: 'want' | 'seen', token: string) =>
       apiFetch<Array<{ movieId: number; movie: Movie }>>(`/api/solo/lists?type=${type}`, { token }),
+
+    movieStatus: (movieId: number, token: string) =>
+      apiFetch<MovieUserStatus>(`/api/solo/status?movieId=${movieId}`, { token }),
+
+    logWatched: (data: { movieId: number; rating: number; watchedAt: string; venue: string; notes?: string }, token: string) =>
+      apiFetch<WatchedMovie>('/api/solo/watched', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        token,
+      }),
+
+    watchedList: (token: string) =>
+      apiFetch<WatchedMovie[]>('/api/solo/watched', { token }),
   },
 
   rooms: {

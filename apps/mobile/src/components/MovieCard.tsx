@@ -80,13 +80,13 @@ export default function MovieCard({ movie, showOverlay }: MovieCardProps) {
 
       {showOverlay === 'right' && (
         <View style={[styles.overlayBadge, styles.likeBadge]}>
-          <Text style={[styles.overlayText, { color: colors.success }]}>LIKE</Text>
+          <Text style={[styles.overlayText, { color: colors.success }]}>SAVE</Text>
         </View>
       )}
 
       {showOverlay === 'left' && (
         <View style={[styles.overlayBadge, styles.skipBadge]}>
-          <Text style={[styles.overlayText, { color: colors.danger }]}>SKIP</Text>
+          <Text style={[styles.overlayText, { color: colors.danger }]}>NOPE</Text>
         </View>
       )}
     </View>

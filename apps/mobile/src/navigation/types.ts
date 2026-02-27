@@ -4,6 +4,8 @@ import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigat
 
 export type MainTabParamList = {
   Home: undefined;
+  Solo: undefined;
+  Group: undefined;
   Profile: undefined;
 };
 
@@ -11,8 +13,10 @@ export type RootStackParamList = {
   Login: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   SoloSwipe: undefined;
+  Search: undefined;
   ThisOrThat: undefined;
   MovieDetail: { movieId: number };
+  LogWatched: { movieId: number; movieTitle: string };
   CreateRoom: undefined;
   JoinRoom: undefined;
   Lobby: { roomCode: string };

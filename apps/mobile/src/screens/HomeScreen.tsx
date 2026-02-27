@@ -1,91 +1,105 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { TMDB_IMAGE_BASE_URL, TMDB_POSTER_SIZES } from '@reelrank/shared';
+import type { Movie } from '@reelrank/shared';
+import { api } from '../utils/api';
 import type { MainTabScreenProps } from '../navigation/types';
 import { colors, spacing, borderRadius, typography } from '../theme';
 
 export default function HomeScreen({ navigation }: MainTabScreenProps<'Home'>) {
+  const [trending, setTrending] = useState<Movie[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.movies.trending(1)
+      .then((data) => setTrending(data.movies.slice(0, 10)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const renderTrendingItem = useCallback(({ item }: { item: Movie }) => {
+    const posterUri = item.posterPath
+      ? `${TMDB_IMAGE_BASE_URL}/${TMDB_POSTER_SIZES.medium}${item.posterPath}`
+      : null;
+    return (
+      <TouchableOpacity
+        style={styles.trendingCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
+      >
+        {posterUri ? (
+          <Image source={{ uri: posterUri }} style={styles.trendingPoster} />
+        ) : (
+          <View style={[styles.trendingPoster, styles.noPoster]}>
+            <Ionicons name="film-outline" size={24} color={colors.textSecondary} />
+          </View>
+        )}
+        <Text style={styles.trendingTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.trendingMeta}>★ {item.voteAverage.toFixed(1)}</Text>
+      </TouchableOpacity>
+    );
+  }, [navigation]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>ReelRank</Text>
-        <Text style={styles.subtitle}>What are we watching?</Text>
-      </View>
-
-      <View style={styles.cards}>
-        <TouchableOpacity
-          style={styles.card}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('SoloSwipe')}
-        >
-          <LinearGradient
-            colors={['#E94560', '#C73659']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardGradient}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="person" size={32} color="#fff" />
-            </View>
-            <Text style={styles.cardTitle}>Solo Mode</Text>
-            <Text style={styles.cardDesc}>
-              Swipe through movies, build your personal rankings, and track your watchlist
-            </Text>
-            <View style={styles.cardFeatures}>
-              <Feature icon="swap-horizontal" label="Swipe Deck" />
-              <Feature icon="trophy" label="This or That" />
-              <Feature icon="list" label="My Rankings" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.card}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('CreateRoom')}
-        >
-          <LinearGradient
-            colors={['#7B2FF7', '#5B1FD7']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardGradient}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="people" size={32} color="#fff" />
-            </View>
-            <Text style={styles.cardTitle}>Group Mode</Text>
-            <Text style={styles.cardDesc}>
-              Create a room, invite friends, and decide what to watch together in real-time
-            </Text>
-            <View style={styles.cardFeatures}>
-              <Feature icon="qr-code" label="Join Code" />
-              <Feature icon="hand-left" label="Group Vote" />
-              <Feature icon="podium" label="Results" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.joinButton}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('JoinRoom')}
-        >
-          <Ionicons name="enter-outline" size={20} color={colors.primary} />
-          <Text style={styles.joinText}>Join a Room with Code</Text>
+        <View>
+          <Text style={styles.title}>ReelRank</Text>
+          <Text style={styles.subtitle}>What are we watching?</Text>
+        </View>
+        <TouchableOpacity style={styles.searchBtn} onPress={() => navigation.navigate('Search')}>
+          <Ionicons name="search" size={22} color={colors.text} />
         </TouchableOpacity>
       </View>
+
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: 'rgba(233,69,96,0.12)' }]}
+          onPress={() => navigation.navigate('Solo' as any)}
+        >
+          <Ionicons name="film" size={24} color={colors.primary} />
+          <Text style={styles.actionLabel}>Discover</Text>
+          <Text style={styles.actionDesc}>Swipe & rank movies</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: 'rgba(123,47,247,0.12)' }]}
+          onPress={() => navigation.navigate('Group' as any)}
+        >
+          <Ionicons name="people" size={24} color="#7B2FF7" />
+          <Text style={styles.actionLabel}>Group</Text>
+          <Text style={styles.actionDesc}>Watch together</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: 'rgba(0,212,170,0.12)' }]}
+          onPress={() => navigation.navigate('ThisOrThat')}
+        >
+          <Ionicons name="trophy" size={24} color={colors.success} />
+          <Text style={styles.actionLabel}>Rank</Text>
+          <Text style={styles.actionDesc}>This or That</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Trending This Week</Text>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+      ) : (
+        <FlatList
+          data={trending}
+          renderItem={renderTrendingItem}
+          keyExtractor={(item) => String(item.id)}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.trendingList}
+        />
+      )}
     </SafeAreaView>
-  );
-}
-
-function Feature({ icon, label }: { icon: string; label: string }) {
-  return (
-    <View style={styles.feature}>
-      <Ionicons name={icon as any} size={14} color="rgba(255,255,255,0.8)" />
-      <Text style={styles.featureText}>{label}</Text>
-    </View>
   );
 }
 
@@ -95,6 +109,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -104,74 +121,80 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   subtitle: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
-  cards: {
+  searchBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  actionCard: {
     flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionLabel: {
+    ...typography.label,
+    color: colors.text,
+    fontSize: 13,
+  },
+  actionDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontSize: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text,
+  },
+  trendingList: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
-  card: {
-    flex: 1,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
+  trendingCard: {
+    width: 140,
+    gap: spacing.xs,
   },
-  cardGradient: {
-    flex: 1,
-    padding: spacing.lg,
-    justifyContent: 'center',
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    ...typography.h1,
-    color: '#fff',
-    marginBottom: spacing.xs,
-  },
-  cardDesc: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  cardFeatures: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  feature: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  featureText: {
-    ...typography.caption,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
-  },
-  joinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  trendingPoster: {
+    width: 140,
+    height: 210,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.lg,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
   },
-  joinText: {
-    ...typography.body,
-    color: colors.primary,
+  noPoster: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendingTitle: {
+    ...typography.bodySmall,
+    color: colors.text,
     fontWeight: '600',
+  },
+  trendingMeta: {
+    ...typography.caption,
+    color: colors.accent,
   },
 });

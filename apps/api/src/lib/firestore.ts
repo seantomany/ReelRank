@@ -24,6 +24,7 @@ export const COLLECTIONS = {
   users: 'users',
   soloSwipes: 'soloSwipes',
   pairwiseChoices: 'pairwiseChoices',
+  watchedMovies: 'watchedMovies',
   rooms: 'rooms',
   // Subcollections under rooms/{roomId}/
   roomMembers: (roomId: string) => `rooms/${roomId}/members`,
