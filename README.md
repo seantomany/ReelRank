@@ -112,26 +112,37 @@ API_URL="http://localhost:3001"
 ABLY_KEY="your-ably-public-key"
 ```
 
-### 4. Firestore Indexes (Optional)
+### 4. Firestore Indexes
 
-Firestore will auto-create single-field indexes. For the compound queries used in rankings and lists, you may need to create composite indexes. Firebase will log a URL with the exact index to create if one is missing — just click the link in the error message.
+Firestore will auto-create single-field indexes. For compound queries used in rankings and lists, Firebase will log a URL with the exact index to create if one is missing — just click the link in the error message.
 
 ---
 
 ## 🏃‍♂️ Running Locally
 
-### Start the API Server
-Runs on `http://localhost:3001`:
+You need **two terminals** — one for the API and one for the mobile app.
+
+### Terminal 1: Start the API Server
+
 ```bash
 pnpm dev:api
 ```
 
-### Start the Mobile App
-Starts the Expo dev server:
+Runs on `http://localhost:3001`.
+
+### Terminal 2: Start the Mobile App
+
 ```bash
-pnpm dev:mobile
+cd apps/mobile
+npx expo start
 ```
+
 Then press **i** for iOS Simulator, **a** for Android Emulator, or scan the QR code with Expo Go.
+
+> **Why run Expo directly instead of `pnpm dev:mobile`?**
+> Running through Turborepo (`pnpm dev:mobile`) works for starting the server, but Turbo doesn't forward keyboard input — so pressing `i` to open the simulator won't work. Running `npx expo start` directly gives you full interactive control.
+
+> **Node 22 users:** If you see `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING` errors, the npm scripts already include the `--no-experimental-strip-types` workaround. If you run `npx expo start` directly, prepend it: `NODE_OPTIONS='--no-experimental-strip-types' npx expo start`.
 
 ---
 
@@ -177,7 +188,7 @@ API_URL="https://your-project.vercel.app"
 | Command | Description |
 |---|---|
 | `pnpm dev:api` | Start API dev server (port 3001) |
-| `pnpm dev:mobile` | Start Expo dev server |
+| `cd apps/mobile && npx expo start` | Start mobile dev server (interactive) |
 | `pnpm build` | Build all packages |
 | `pnpm lint` | Lint the entire monorepo |
 | `pnpm test` | Run Vitest tests |
