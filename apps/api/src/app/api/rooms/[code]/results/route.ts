@@ -4,14 +4,16 @@ import { authenticateRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { publishToRoom } from '@/lib/ably';
-import { handleApiError, createRequestId } from '@/lib/errors';
+import { handleApiError, createRequestId, createApiError } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
+import { validateRoomCode, findRoomByCode } from '@/lib/route-helpers';
 import type { MovieScore } from '@reelrank/shared';
 
 function computeSimpleMajority(
   swipes: { movieId: number; direction: string }[],
   totalMembers: number,
   movieDetails: Map<number, { popularity: number; voteAverage: number }>,
-): MovieScore[] {
+): Omit<MovieScore, 'movie'>[] {
   const scores = new Map<number, { right: number; left: number }>();
 
   for (const swipe of swipes) {
@@ -41,9 +43,7 @@ function computeSimpleMajority(
     });
   }
 
-  return results
-    .sort((a, b) => b.finalScore - a.finalScore)
-    .map((r) => ({ ...r, movie: null as unknown as MovieScore['movie'] }));
+  return results.sort((a, b) => b.finalScore - a.finalScore);
 }
 
 export async function GET(
@@ -53,24 +53,38 @@ export async function GET(
   const requestId = createRequestId();
 
   try {
-    await authenticateRequest(req);
-    const { code } = await params;
+    const rateLimited = await withRateLimit(req, 'general');
+    if (rateLimited) return rateLimited;
 
-    // Find room by code
-    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
-      .where('code', '==', code)
+    await authenticateRequest(req);
+    const { code: rawCode } = await params;
+    const code = validateRoomCode(rawCode, requestId);
+
+    const { roomId, roomData } = await findRoomByCode(getDb(), COLLECTIONS.rooms, code, requestId);
+
+    if (roomData.status !== 'swiping' && roomData.status !== 'results') {
+      throw createApiError(400, 'Results are not available for this room yet', requestId);
+    }
+
+    const existingResults = await getDb().collection(COLLECTIONS.roomResults(roomId))
+      .orderBy('computedAt', 'desc')
       .limit(1)
       .get();
 
-    if (roomsSnap.empty) {
-      return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
+    if (!existingResults.empty) {
+      const cached = existingResults.docs[0].data();
+      const rankedMovies = (cached.scoreBreakdown as Record<string, unknown>[]) ?? [];
+      return NextResponse.json({
+        data: {
+          id: existingResults.docs[0].id,
+          roomId,
+          rankedMovies,
+          algorithmVersion: cached.algorithmVersion,
+        },
+        requestId,
+      });
     }
 
-    const roomDoc = roomsSnap.docs[0];
-    const roomId = roomDoc.id;
-    const roomData = roomDoc.data();
-
-    // Fetch subcollections
     const [membersSnap, moviesSnap, swipesSnap] = await Promise.all([
       getDb().collection(COLLECTIONS.roomMembers(roomId)).get(),
       getDb().collection(COLLECTIONS.roomMovies(roomId)).get(),
@@ -95,12 +109,11 @@ export async function GET(
       swipes,
       membersSnap.size,
       movieDetails,
-    ).map((score) => ({
-      ...score,
-      movie: movieMap.get(score.movieId)!,
-    })).filter((r) => r.movie);
+    ).map((score) => {
+      const movie = movieMap.get(score.movieId);
+      return movie ? { ...score, movie } : null;
+    }).filter(Boolean) as MovieScore[];
 
-    // Save result
     const resultData = {
       roomId,
       algorithmVersion: ALGORITHM_VERSIONS.SIMPLE_MAJORITY,

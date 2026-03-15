@@ -7,9 +7,11 @@ import type { MovieUserStatus } from '@reelrank/shared';
 export const GET = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
-    const movieId = parseInt(searchParams.get('movieId') ?? '0', 10);
-    if (!movieId) {
-      return NextResponse.json({ error: 'movieId required', requestId }, { status: 400 });
+    const raw = searchParams.get('movieId');
+    const movieId = raw ? parseInt(raw, 10) : NaN;
+
+    if (!raw || isNaN(movieId) || movieId <= 0) {
+      return NextResponse.json({ error: 'movieId must be a positive integer', requestId }, { status: 400 });
     }
 
     const [swipeSnap, watchedSnap] = await Promise.all([

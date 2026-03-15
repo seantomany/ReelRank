@@ -91,6 +91,35 @@ export async function getTrendingMovies(page = 1) {
   };
 }
 
+export async function getGenres(): Promise<{ id: number; name: string }[]> {
+  const data = await tmdbFetch<{ genres: { id: number; name: string }[] }>('/genre/movie/list', {
+    language: 'en-US',
+  });
+  return data.genres;
+}
+
+export async function discoverMovies(genreId?: number, page = 1) {
+  const params: Record<string, string> = {
+    page: String(page),
+    language: 'en-US',
+    sort_by: 'popularity.desc',
+    include_adult: 'false',
+    'vote_count.gte': '50',
+  };
+  if (genreId) {
+    params.with_genres = String(genreId);
+  }
+
+  const data = await tmdbFetch<TMDBSearchResponse>('/discover/movie', params);
+
+  return {
+    movies: data.results.map(mapTMDBMovie),
+    page: data.page,
+    totalPages: data.total_pages,
+    totalResults: data.total_results,
+  };
+}
+
 export async function getMovieById(id: number): Promise<Movie> {
   const raw = await tmdbFetch<TMDBDetailMovie>(`/movie/${id}`, {
     language: 'en-US',

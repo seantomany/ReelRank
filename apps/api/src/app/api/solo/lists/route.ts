@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ListTypeSchema } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
@@ -7,7 +8,8 @@ import { handleApiError } from '@/lib/errors';
 export const GET = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
-    const listType = searchParams.get('type') ?? 'want';
+    const typeResult = ListTypeSchema.safeParse(searchParams.get('type') ?? 'want');
+    const listType = typeResult.success ? typeResult.data : 'want';
 
     let query = getDb().collection(COLLECTIONS.soloSwipes)
       .where('userId', '==', user.id)

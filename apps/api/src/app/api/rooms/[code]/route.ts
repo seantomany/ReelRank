@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { handleApiError, createRequestId } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
+import { validateRoomCode, findRoomByCode } from '@/lib/route-helpers';
 
 export async function GET(
   req: NextRequest,
@@ -10,24 +12,15 @@ export async function GET(
   const requestId = createRequestId();
 
   try {
+    const rateLimited = await withRateLimit(req, 'general');
+    if (rateLimited) return rateLimited;
+
     await authenticateRequest(req);
-    const { code } = await params;
+    const { code: rawCode } = await params;
+    const code = validateRoomCode(rawCode, requestId);
 
-    // Find room by code
-    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
-      .where('code', '==', code)
-      .limit(1)
-      .get();
+    const { roomId, roomData } = await findRoomByCode(getDb(), COLLECTIONS.rooms, code, requestId);
 
-    if (roomsSnap.empty) {
-      return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
-    }
-
-    const roomDoc = roomsSnap.docs[0];
-    const roomId = roomDoc.id;
-    const roomData = roomDoc.data();
-
-    // Fetch members with user details
     const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
     const members = await Promise.all(
       membersSnap.docs.map(async (m) => {
@@ -46,7 +39,6 @@ export async function GET(
       }),
     );
 
-    // Fetch movies
     const moviesSnap = await getDb().collection(COLLECTIONS.roomMovies(roomId)).get();
     const movies = moviesSnap.docs.map((m) => ({
       id: m.id,

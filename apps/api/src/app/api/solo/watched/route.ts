@@ -4,10 +4,15 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { getMovieById } from '@/lib/tmdb';
 import { handleApiError } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
+import { parseJsonBody } from '@/lib/route-helpers';
 
 export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
-    const body = await req.json();
+    const rateLimited = await withRateLimit(req, 'general');
+    if (rateLimited) return rateLimited;
+
+    const body = await parseJsonBody(req);
     const parsed = WatchedMovieInputSchema.safeParse(body);
 
     if (!parsed.success) {

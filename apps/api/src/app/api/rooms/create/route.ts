@@ -4,6 +4,7 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
 import { handleApiError } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -16,6 +17,9 @@ function generateRoomCode(): string {
 
 export const POST = withAuth(async (_req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
+    const rateLimited = await withRateLimit(_req, 'general');
+    if (rateLimited) return rateLimited;
+
     let code = '';
     let attempts = 0;
 
@@ -38,6 +42,7 @@ export const POST = withAuth(async (_req: NextRequest, { user, requestId }: Auth
       code,
       hostId: user.id,
       status: 'lobby',
+      algorithmVersion: 'simple_majority_v1',
       createdAt: now,
       updatedAt: now,
     };
@@ -45,13 +50,11 @@ export const POST = withAuth(async (_req: NextRequest, { user, requestId }: Auth
     const roomRef = await getDb().collection(COLLECTIONS.rooms).add(roomData);
     const roomId = roomRef.id;
 
-    // Add host as first member
     await getDb().collection(COLLECTIONS.roomMembers(roomId)).doc(user.id).set({
       userId: user.id,
       joinedAt: now,
     });
 
-    // Cache room code → room ID in Redis
     await redis.set(`room:${code}`, roomId, { ex: 86400 });
 
     const room = {

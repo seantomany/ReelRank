@@ -4,6 +4,8 @@ import { authenticateRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId, createApiError } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
+import { parseJsonBody, validateRoomCode, findRoomByCode } from '@/lib/route-helpers';
 
 export async function POST(
   req: NextRequest,
@@ -12,9 +14,14 @@ export async function POST(
   const requestId = createRequestId();
 
   try {
+    const rateLimited = await withRateLimit(req, 'general');
+    if (rateLimited) return rateLimited;
+
     const { user } = await authenticateRequest(req);
-    const { code } = await params;
-    const body = await req.json();
+    const { code: rawCode } = await params;
+    const code = validateRoomCode(rawCode, requestId);
+
+    const body = await parseJsonBody(req);
     const parsed = SubmitMovieInputSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -24,37 +31,22 @@ export async function POST(
       );
     }
 
-    // Find room by code
-    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
-      .where('code', '==', code)
-      .limit(1)
-      .get();
-
-    if (roomsSnap.empty) {
-      return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
-    }
-
-    const roomDoc = roomsSnap.docs[0];
-    const roomId = roomDoc.id;
-    const roomData = roomDoc.data();
+    const { roomId, roomData } = await findRoomByCode(getDb(), COLLECTIONS.rooms, code, requestId);
 
     if (roomData.status !== 'submitting') {
       throw createApiError(400, 'Room is not accepting movie submissions', requestId);
     }
 
-    // Check membership
     const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
     if (!membersSnap.docs.some((m) => m.id === user.id)) {
       throw createApiError(403, 'You are not a member of this room', requestId);
     }
 
-    // Check movie count
     const moviesSnap = await getDb().collection(COLLECTIONS.roomMovies(roomId)).get();
     if (moviesSnap.size >= ROOM_MAX_MOVIES) {
       throw createApiError(400, 'Maximum movies reached for this room', requestId);
     }
 
-    // Check if movie already submitted (use movieId as doc ID)
     const movieDocId = String(parsed.data.movieId);
     const existingMovie = await getDb().collection(COLLECTIONS.roomMovies(roomId)).doc(movieDocId).get();
     if (existingMovie.exists) {

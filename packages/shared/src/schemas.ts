@@ -15,6 +15,9 @@ export const PairwiseChoiceInputSchema = z
     movieBId: z.number().int().positive(),
     chosenId: z.number().int().positive(),
   })
+  .refine((d) => d.movieAId !== d.movieBId, {
+    message: 'movieAId and movieBId must be different',
+  })
   .refine((d) => d.chosenId === d.movieAId || d.chosenId === d.movieBId, {
     message: 'chosenId must be one of movieAId or movieBId',
   });
@@ -48,6 +51,12 @@ export const WatchedMovieInputSchema = z.object({
   venue: z.string().min(1).max(100),
   notes: z.string().max(500).optional(),
 });
+
+export const RoomCodeSchema = z.string().length(6).regex(/^[A-Z2-9]+$/, 'Invalid room code format');
+
+export const ListTypeSchema = z.enum(['want', 'pass']);
+
+export const TrendingPageSchema = z.coerce.number().int().min(1).max(500).default(1);
 
 export type SoloSwipeInput = z.infer<typeof SoloSwipeInputSchema>;
 export type PairwiseChoiceInput = z.infer<typeof PairwiseChoiceInputSchema>;

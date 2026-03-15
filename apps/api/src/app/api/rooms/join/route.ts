@@ -6,6 +6,23 @@ import { redis } from '@/lib/redis';
 import { withRateLimit } from '@/lib/rate-limit';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError } from '@/lib/errors';
+import { parseJsonBody } from '@/lib/route-helpers';
+
+async function resolveRoomId(code: string): Promise<string | null> {
+  const cached = await redis.get<string>(`room:${code}`);
+  if (cached) return cached;
+
+  const snap = await getDb().collection(COLLECTIONS.rooms)
+    .where('code', '==', code)
+    .limit(1)
+    .get();
+
+  if (snap.empty) return null;
+
+  const roomId = snap.docs[0].id;
+  await redis.set(`room:${code}`, roomId, { ex: 86400 });
+  return roomId;
+}
 
 async function getRoomWithMembers(roomId: string) {
   const roomSnap = await getDb().collection(COLLECTIONS.rooms).doc(roomId).get();
@@ -14,7 +31,6 @@ async function getRoomWithMembers(roomId: string) {
   const roomData = roomSnap.data()!;
   const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
 
-  // Fetch user details for each member
   const members = await Promise.all(
     membersSnap.docs.map(async (m) => {
       const memberData = m.data();
@@ -46,7 +62,7 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
     const rateLimited = await withRateLimit(req, 'roomJoin');
     if (rateLimited) return rateLimited;
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = JoinRoomInputSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -56,7 +72,7 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
       );
     }
 
-    const roomId = await redis.get<string>(`room:${parsed.data.code}`);
+    const roomId = await resolveRoomId(parsed.data.code);
     if (!roomId) {
       return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
     }

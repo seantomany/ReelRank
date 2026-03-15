@@ -4,6 +4,8 @@ import { authenticateRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { publishToRoom } from '@/lib/ably';
 import { handleApiError, createRequestId, createApiError } from '@/lib/errors';
+import { withRateLimit } from '@/lib/rate-limit';
+import { parseJsonBody, validateRoomCode, findRoomByCode } from '@/lib/route-helpers';
 
 export async function POST(
   req: NextRequest,
@@ -12,9 +14,14 @@ export async function POST(
   const requestId = createRequestId();
 
   try {
+    const rateLimited = await withRateLimit(req, 'general');
+    if (rateLimited) return rateLimited;
+
     const { user } = await authenticateRequest(req);
-    const { code } = await params;
-    const body = await req.json();
+    const { code: rawCode } = await params;
+    const code = validateRoomCode(rawCode, requestId);
+
+    const body = await parseJsonBody(req);
     const parsed = RoomSwipeInputSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -24,31 +31,26 @@ export async function POST(
       );
     }
 
-    // Find room by code
-    const roomsSnap = await getDb().collection(COLLECTIONS.rooms)
-      .where('code', '==', code)
-      .limit(1)
-      .get();
-
-    if (roomsSnap.empty) {
-      return NextResponse.json({ error: 'Room not found', requestId }, { status: 404 });
-    }
-
-    const roomDoc = roomsSnap.docs[0];
-    const roomId = roomDoc.id;
-    const roomData = roomDoc.data();
+    const { roomId, roomData } = await findRoomByCode(getDb(), COLLECTIONS.rooms, code, requestId);
 
     if (roomData.status !== 'swiping') {
       throw createApiError(400, 'Room is not in swiping phase', requestId);
     }
 
-    // Check membership
-    const membersSnap = await getDb().collection(COLLECTIONS.roomMembers(roomId)).get();
+    const [membersSnap, moviesSnap] = await Promise.all([
+      getDb().collection(COLLECTIONS.roomMembers(roomId)).get(),
+      getDb().collection(COLLECTIONS.roomMovies(roomId)).get(),
+    ]);
+
     if (!membersSnap.docs.some((m) => m.id === user.id)) {
       throw createApiError(403, 'You are not a member of this room', requestId);
     }
 
-    // Upsert swipe using deterministic doc ID
+    const movieIds = new Set(moviesSnap.docs.map((m) => (m.data() as { movieId: number }).movieId));
+    if (!movieIds.has(parsed.data.movieId)) {
+      throw createApiError(400, 'Movie is not in this room\'s pool', requestId);
+    }
+
     const swipeDocId = `${user.id}_${parsed.data.movieId}`;
     const swipeData = {
       roomId,
@@ -60,8 +62,6 @@ export async function POST(
 
     await getDb().collection(COLLECTIONS.roomSwipes(roomId)).doc(swipeDocId).set(swipeData);
 
-    // Calculate progress
-    const moviesSnap = await getDb().collection(COLLECTIONS.roomMovies(roomId)).get();
     const swipesSnap = await getDb().collection(COLLECTIONS.roomSwipes(roomId)).get();
     const totalExpected = membersSnap.size * moviesSnap.size;
     const totalSwipes = swipesSnap.size;

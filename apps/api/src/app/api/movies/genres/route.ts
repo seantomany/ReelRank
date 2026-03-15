@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth';
+import { getGenres } from '@/lib/tmdb';
 import { handleApiError, createRequestId } from '@/lib/errors';
 import { withRateLimit } from '@/lib/rate-limit';
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const requestId = createRequestId();
+
   try {
     const rateLimited = await withRateLimit(req, 'general');
     if (rateLimited) return rateLimited;
 
-    const { user } = await authenticateRequest(req);
-    return NextResponse.json({ data: user, requestId });
+    const genres = await getGenres();
+    return NextResponse.json({ data: genres, requestId });
   } catch (error) {
     const { status, body } = handleApiError(error, requestId);
     return NextResponse.json(body, { status });
