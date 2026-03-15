@@ -52,6 +52,12 @@ export const WatchedMovieInputSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
+export const AlgorithmTypeSchema = z.enum(['simple_majority_v1', 'elo_group_v1', 'ranked_choice_v1']);
+
+export const CreateRoomInputSchema = z.object({
+  algorithm: AlgorithmTypeSchema.default('simple_majority_v1'),
+});
+
 export const RoomCodeSchema = z.string().length(6).regex(/^[A-Z2-9]+$/, 'Invalid room code format');
 
 export const ListTypeSchema = z.enum(['want', 'pass']);

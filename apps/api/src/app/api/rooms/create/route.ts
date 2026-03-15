@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ROOM_CODE_LENGTH } from '@reelrank/shared';
+import { ROOM_CODE_LENGTH, CreateRoomInputSchema, ALGORITHM_VERSIONS } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
@@ -15,10 +15,21 @@ function generateRoomCode(): string {
   return code;
 }
 
-export const POST = withAuth(async (_req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
+export const POST = withAuth(async (req: NextRequest, { user, requestId }: AuthenticatedRequest) => {
   try {
-    const rateLimited = await withRateLimit(_req, 'general');
+    const rateLimited = await withRateLimit(req, 'general');
     if (rateLimited) return rateLimited;
+
+    let algorithmVersion = ALGORITHM_VERSIONS.SIMPLE_MAJORITY;
+    try {
+      const body = await req.json();
+      const parsed = CreateRoomInputSchema.safeParse(body);
+      if (parsed.success) {
+        algorithmVersion = parsed.data.algorithm;
+      }
+    } catch {
+      // No body is fine, use default algorithm
+    }
 
     let code = '';
     let attempts = 0;
@@ -42,7 +53,7 @@ export const POST = withAuth(async (_req: NextRequest, { user, requestId }: Auth
       code,
       hostId: user.id,
       status: 'lobby',
-      algorithmVersion: 'simple_majority_v1',
+      algorithmVersion,
       createdAt: now,
       updatedAt: now,
     };

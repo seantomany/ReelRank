@@ -13,7 +13,7 @@ import { colors, spacing, borderRadius, typography } from '../theme';
 export default function GroupSwipeScreen({ navigation, route }: RootStackScreenProps<'GroupSwipe'>) {
   const { roomCode } = route.params;
   const { getIdToken } = useAuth();
-  const { room } = useRoom(roomCode);
+  const { room, swipeProgress } = useRoom(roomCode);
   const deckRef = useRef<SwipeDeckRef>(null);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +98,11 @@ export default function GroupSwipeScreen({ navigation, route }: RootStackScreenP
           <View style={styles.done}>
             <Ionicons name="checkmark-circle" size={64} color={colors.success} />
             <Text style={styles.doneTitle}>All done!</Text>
-            <Text style={styles.doneSubtitle}>Waiting for other members to finish...</Text>
+            <Text style={styles.doneSubtitle}>
+              {swipeProgress
+                ? `${Math.round(swipeProgress.progress * 100)}% of votes in (${swipeProgress.totalSwipes}/${swipeProgress.totalExpected})`
+                : 'Waiting for other members to finish...'}
+            </Text>
             <TouchableOpacity style={styles.resultsButton} onPress={handleFinished}>
               <Text style={styles.resultsButtonText}>View Results</Text>
             </TouchableOpacity>

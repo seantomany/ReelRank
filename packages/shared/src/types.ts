@@ -42,11 +42,14 @@ export interface PairwiseChoice {
 
 export type RoomStatus = 'lobby' | 'submitting' | 'swiping' | 'results';
 
+export type AlgorithmType = 'simple_majority_v1' | 'elo_group_v1' | 'ranked_choice_v1';
+
 export interface Room {
   id: string;
   code: string;
   hostId: string;
   status: RoomStatus;
+  algorithmVersion: AlgorithmType;
   createdAt: Date;
   updatedAt: Date;
   members?: RoomMember[];

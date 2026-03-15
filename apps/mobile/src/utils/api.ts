@@ -35,6 +35,15 @@ export const api = {
 
     getById: (id: number) =>
       apiFetch<Movie>(`/api/movies/${id}`),
+
+    genres: () =>
+      apiFetch<{ id: number; name: string }[]>('/api/movies/genres'),
+
+    discover: (page = 1, genreId?: number) => {
+      const params = new URLSearchParams({ page: String(page) });
+      if (genreId) params.set('genre', String(genreId));
+      return apiFetch<{ movies: Movie[]; totalPages: number }>(`/api/movies/discover?${params}`);
+    },
   },
 
   auth: {
@@ -78,11 +87,27 @@ export const api = {
 
     watchedList: (token: string) =>
       apiFetch<WatchedMovie[]>('/api/solo/watched', { token }),
+
+    stats: (token: string) =>
+      apiFetch<{
+        totalSwipes: number;
+        rightSwipes: number;
+        leftSwipes: number;
+        matchRate: number;
+        totalWatched: number;
+        avgRating: number;
+        totalPairwise: number;
+        topVenues: { venue: string; count: number }[];
+      }>('/api/solo/stats', { token }),
   },
 
   rooms: {
-    create: (token: string) =>
-      apiFetch<Room>('/api/rooms/create', { method: 'POST', token }),
+    create: (token: string, algorithm?: string) =>
+      apiFetch<Room>('/api/rooms/create', {
+        method: 'POST',
+        body: algorithm ? JSON.stringify({ algorithm }) : undefined,
+        token,
+      }),
 
     join: (code: string, token: string) =>
       apiFetch<Room>('/api/rooms/join', {
@@ -117,5 +142,15 @@ export const api = {
 
     results: (code: string, token: string) =>
       apiFetch<{ rankedMovies: MovieScore[] }>(`/api/rooms/${code}/results`, { token }),
+
+    history: (token: string) =>
+      apiFetch<Array<{
+        id: string;
+        code: string;
+        hostId: string;
+        status: string;
+        memberCount: number;
+        createdAt: string;
+      }>>('/api/rooms/history', { token }),
   },
 };

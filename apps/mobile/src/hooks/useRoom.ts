@@ -3,12 +3,19 @@ import { subscribeToRoom, unsubscribeFromRoom } from '../config/ably';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { ABLY_EVENTS } from '@reelrank/shared';
-import type { Room, RoomMember } from '@reelrank/shared';
+import type { Room } from '@reelrank/shared';
+
+interface SwipeProgress {
+  progress: number;
+  totalSwipes: number;
+  totalExpected: number;
+}
 
 interface UseRoomReturn {
   room: Room | null;
   loading: boolean;
   error: string | null;
+  swipeProgress: SwipeProgress | null;
   refresh: () => Promise<void>;
 }
 
@@ -17,6 +24,7 @@ export function useRoom(roomCode: string | null): UseRoomReturn {
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState<SwipeProgress | null>(null);
   const unsubscribers = useRef<Array<() => void>>([]);
 
   const refresh = useCallback(async () => {
@@ -57,7 +65,18 @@ export function useRoom(roomCode: string | null): UseRoomReturn {
       refresh();
     });
 
-    unsubscribers.current = [unsub1, unsub2, unsub3, unsub4];
+    const unsub5 = subscribeToRoom(roomCode, ABLY_EVENTS.SWIPE_PROGRESS, (message) => {
+      const data = message.data as SwipeProgress | undefined;
+      if (data) {
+        setSwipeProgress({
+          progress: data.progress,
+          totalSwipes: data.totalSwipes,
+          totalExpected: data.totalExpected,
+        });
+      }
+    });
+
+    unsubscribers.current = [unsub1, unsub2, unsub3, unsub4, unsub5];
 
     return () => {
       unsubscribers.current.forEach((fn) => fn());
@@ -65,5 +84,5 @@ export function useRoom(roomCode: string | null): UseRoomReturn {
     };
   }, [roomCode, refresh]);
 
-  return { room, loading, error, refresh };
+  return { room, loading, error, swipeProgress, refresh };
 }
