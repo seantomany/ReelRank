@@ -1,12 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ROOM_CODE_LENGTH, ALGORITHM_VERSIONS } from '@reelrank/shared';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ROOM_CODE_LENGTH, ALGORITHM_VERSIONS, ROOM_MAX_MEMBERS, ROOM_MAX_MOVIES } from '@reelrank/shared';
 
 vi.mock('@/lib/firestore', () => ({
-  db: {
+  getDb: vi.fn().mockReturnValue({
     collection: vi.fn().mockReturnValue({
       doc: vi.fn().mockReturnValue({
         get: vi.fn().mockResolvedValue({ exists: false }),
         set: vi.fn().mockResolvedValue(undefined),
+        update: vi.fn().mockResolvedValue(undefined),
       }),
       add: vi.fn().mockResolvedValue({ id: 'mock-id' }),
       get: vi.fn().mockResolvedValue({ docs: [], size: 0, empty: true }),
@@ -14,11 +15,12 @@ vi.mock('@/lib/firestore', () => ({
       orderBy: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
     }),
-  },
+  }),
   COLLECTIONS: {
     users: 'users',
     soloSwipes: 'soloSwipes',
     pairwiseChoices: 'pairwiseChoices',
+    watchedMovies: 'watchedMovies',
     rooms: 'rooms',
     roomMembers: (id: string) => `rooms/${id}/members`,
     roomMovies: (id: string) => `rooms/${id}/movies`,
@@ -55,6 +57,11 @@ describe('Room Code Generation', () => {
     expect(chars).not.toContain('O');
     expect(chars).not.toContain('1');
     expect(chars).not.toContain('I');
+  });
+
+  it('has correct number of possible characters', () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    expect(chars.length).toBe(32);
   });
 });
 
@@ -118,6 +125,24 @@ describe('Simple Majority Algorithm', () => {
     const results = computeSimpleMajority(swipes, 2);
     expect(results[0].score).toBe(0);
   });
+
+  it('handles single voter', () => {
+    const swipes = [
+      { movieId: 1, direction: 'right' },
+      { movieId: 2, direction: 'left' },
+    ];
+
+    const results = computeSimpleMajority(swipes, 1);
+    expect(results[0].movieId).toBe(1);
+    expect(results[0].score).toBe(1);
+    expect(results[1].movieId).toBe(2);
+    expect(results[1].score).toBe(-1);
+  });
+
+  it('handles empty swipes', () => {
+    const results = computeSimpleMajority([], 3);
+    expect(results).toHaveLength(0);
+  });
 });
 
 describe('Algorithm Versions', () => {
@@ -125,5 +150,13 @@ describe('Algorithm Versions', () => {
     expect(ALGORITHM_VERSIONS.SIMPLE_MAJORITY).toBe('simple_majority_v1');
     expect(ALGORITHM_VERSIONS.RANKED_CHOICE).toBe('ranked_choice_v1');
     expect(ALGORITHM_VERSIONS.ELO_GROUP).toBe('elo_group_v1');
+  });
+});
+
+describe('Constants', () => {
+  it('has correct room limits', () => {
+    expect(ROOM_CODE_LENGTH).toBe(6);
+    expect(ROOM_MAX_MEMBERS).toBe(20);
+    expect(ROOM_MAX_MOVIES).toBe(30);
   });
 });
