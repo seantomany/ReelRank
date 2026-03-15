@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +21,7 @@ export default function SoloSwipeScreen() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [cardIndex, setCardIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const pageRef = useRef(1);
   const isFetchingRef = useRef(false);
 
@@ -28,10 +29,11 @@ export default function SoloSwipeScreen() {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
+      setError(null);
       const data = await api.movies.trending(p);
       setMovies((prev) => (p === 1 ? data.movies : [...prev, ...data.movies]));
-    } catch (err) {
-      console.error('Failed to load movies:', err);
+    } catch {
+      setError('Failed to load movies');
     } finally {
       isFetchingRef.current = false;
       setLoading(false);

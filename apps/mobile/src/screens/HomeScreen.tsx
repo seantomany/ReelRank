@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { TMDB_IMAGE_BASE_URL, TMDB_POSTER_SIZES } from '@reelrank/shared';
@@ -11,13 +11,30 @@ import { colors, spacing, borderRadius, typography } from '../theme';
 export default function HomeScreen({ navigation }: MainTabScreenProps<'Home'>) {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadTrending = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await api.movies.trending(1);
+      setTrending(data.movies.slice(0, 10));
+    } catch {
+      setError('Failed to load trending movies');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    api.movies.trending(1)
-      .then((data) => setTrending(data.movies.slice(0, 10)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    loadTrending();
+  }, [loadTrending]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadTrending();
+  }, [loadTrending]);
 
   const renderTrendingItem = useCallback(({ item }: { item: Movie }) => {
     const posterUri = item.posterPath
@@ -57,7 +74,7 @@ export default function HomeScreen({ navigation }: MainTabScreenProps<'Home'>) {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: 'rgba(233,69,96,0.12)' }]}
-          onPress={() => navigation.navigate('Solo' as any)}
+          onPress={() => navigation.navigate('SoloSwipe')}
         >
           <Ionicons name="film" size={24} color={colors.primary} />
           <Text style={styles.actionLabel}>Discover</Text>
@@ -66,7 +83,7 @@ export default function HomeScreen({ navigation }: MainTabScreenProps<'Home'>) {
 
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: 'rgba(123,47,247,0.12)' }]}
-          onPress={() => navigation.navigate('Group' as any)}
+          onPress={() => navigation.navigate('CreateRoom')}
         >
           <Ionicons name="people" size={24} color="#7B2FF7" />
           <Text style={styles.actionLabel}>Group</Text>
@@ -87,7 +104,13 @@ export default function HomeScreen({ navigation }: MainTabScreenProps<'Home'>) {
         <Text style={styles.sectionTitle}>Trending This Week</Text>
       </View>
 
-      {loading ? (
+      {error ? (
+        <TouchableOpacity style={{ alignItems: 'center', marginTop: spacing.xl, gap: spacing.sm }} onPress={loadTrending}>
+          <Ionicons name="alert-circle-outline" size={32} color={colors.danger} />
+          <Text style={{ ...typography.body, color: colors.textSecondary }}>{error}</Text>
+          <Text style={{ ...typography.bodySmall, color: colors.primary }}>Tap to retry</Text>
+        </TouchableOpacity>
+      ) : loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
       ) : (
         <FlatList

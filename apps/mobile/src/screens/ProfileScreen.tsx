@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -22,6 +23,16 @@ import { colors, spacing, borderRadius, typography } from '../theme';
 type ListTab = 'ranking' | 'want' | 'watched';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+interface UserStats {
+  totalSwipes: number;
+  rightSwipes: number;
+  leftSwipes: number;
+  matchRate: number;
+  totalWatched: number;
+  avgRating: number;
+  totalPairwise: number;
+}
+
 export default function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { user, signOut, getIdToken } = useAuth();
@@ -30,12 +41,20 @@ export default function ProfileScreen() {
   const [wantList, setWantList] = useState<Array<{ movieId: number; movie: Movie }>>([]);
   const [watchedList, setWatchedList] = useState<WatchedMovie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<UserStats | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getIdToken();
       if (!token) return;
+
+      if (!stats) {
+        try {
+          const s = await api.solo.stats(token);
+          setStats(s);
+        } catch {}
+      }
 
       if (activeTab === 'ranking') {
         const data = await api.solo.ranking(token);
@@ -226,10 +245,36 @@ export default function ProfileScreen() {
           <Text style={styles.name}>{user?.displayName ?? 'Movie Fan'}</Text>
           <Text style={styles.email}>{user?.email}</Text>
         </View>
-        <TouchableOpacity onPress={signOut} style={styles.signOut}>
+        <TouchableOpacity onPress={() => {
+          Alert.alert('Sign Out', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign Out', style: 'destructive', onPress: signOut },
+          ]);
+        }} style={styles.signOut}>
           <Ionicons name="log-out-outline" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
+
+      {stats && (
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.totalSwipes}</Text>
+            <Text style={styles.statDesc}>Swiped</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.totalWatched}</Text>
+            <Text style={styles.statDesc}>Watched</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.avgRating || '—'}</Text>
+            <Text style={styles.statDesc}>Avg Rating</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{Math.round(stats.matchRate * 100)}%</Text>
+            <Text style={styles.statDesc}>Like Rate</Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.tabs}>
         {TABS.map((tab) => (
@@ -387,5 +432,29 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.xxl,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statNumber: {
+    ...typography.h3,
+    color: colors.text,
+  },
+  statDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

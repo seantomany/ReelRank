@@ -9,8 +9,10 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -51,6 +53,7 @@ export default function LogWatchedScreen({ route, navigation }: RootStackScreenP
       if (!token) return;
       await api.solo.logWatched({ movieId, rating, watchedAt, venue, notes: notes || undefined }, token);
       await api.solo.swipe(movieId, 'right', token);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Failed to save');
@@ -60,6 +63,11 @@ export default function LogWatchedScreen({ route, navigation }: RootStackScreenP
   };
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={90}
+    >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.movieName}>{movieTitle}</Text>
 
@@ -69,7 +77,7 @@ export default function LogWatchedScreen({ route, navigation }: RootStackScreenP
           <TouchableOpacity
             key={n}
             style={[styles.ratingDot, n <= rating && styles.ratingDotActive]}
-            onPress={() => setRating(n)}
+            onPress={() => { setRating(n); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
           >
             <Text style={[styles.ratingNum, n <= rating && styles.ratingNumActive]}>{n}</Text>
           </TouchableOpacity>
@@ -123,6 +131,7 @@ export default function LogWatchedScreen({ route, navigation }: RootStackScreenP
         )}
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

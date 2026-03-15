@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import type { MainTabScreenProps } from '../navigation/types';
 import { colors, spacing, borderRadius, typography } from '../theme';
+
+interface RoomHistoryItem {
+  id: string;
+  code: string;
+  hostId: string;
+  status: string;
+  memberCount: number;
+  createdAt: string;
+}
 
 export default function GroupScreen({ navigation }: MainTabScreenProps<'Group'>) {
   const { getIdToken } = useAuth();
   const [roomCode, setRoomCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [history, setHistory] = useState<RoomHistoryItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const token = await getIdToken();
+          if (!token) return;
+          const data = await api.rooms.history(token);
+          setHistory(data);
+        } catch {}
+      })();
+    }, [getIdToken]),
+  );
 
   const handleCreate = async () => {
     setCreating(true);
@@ -110,6 +134,45 @@ export default function GroupScreen({ navigation }: MainTabScreenProps<'Group'>)
             </TouchableOpacity>
           </View>
         </View>
+
+        {history.length > 0 && (
+          <View style={styles.historySection}>
+            <Text style={styles.historyTitle}>Recent Rooms</Text>
+            {history.slice(0, 5).map((room) => {
+              const statusColors: Record<string, string> = {
+                lobby: colors.accent,
+                submitting: colors.primary,
+                swiping: '#7B2FF7',
+                results: colors.success,
+              };
+              return (
+                <TouchableOpacity
+                  key={room.id}
+                  style={styles.historyRow}
+                  onPress={() => {
+                    if (room.status === 'results') {
+                      navigation.navigate('GroupResults', { roomCode: room.code });
+                    } else {
+                      navigation.navigate('Lobby', { roomCode: room.code });
+                    }
+                  }}
+                >
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyCode}>{room.code}</Text>
+                    <Text style={styles.historyMeta}>
+                      {room.memberCount} members · {new Date(room.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: `${statusColors[room.status] ?? colors.textSecondary}20` }]}>
+                    <Text style={[styles.statusText, { color: statusColors[room.status] ?? colors.textSecondary }]}>
+                      {room.status}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -224,5 +287,47 @@ const styles = StyleSheet.create({
   },
   joinButtonDisabled: {
     opacity: 0.4,
+  },
+  historySection: {
+    marginTop: spacing.xl,
+  },
+  historyTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  historyInfo: {
+    flex: 1,
+  },
+  historyCode: {
+    ...typography.label,
+    color: colors.text,
+    letterSpacing: 2,
+  },
+  historyMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  statusText: {
+    ...typography.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
