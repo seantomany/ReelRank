@@ -8,7 +8,8 @@
     "dev": "NODE_OPTIONS='--no-experimental-strip-types' expo start",
     "android": "NODE_OPTIONS='--no-experimental-strip-types' expo start --android",
     "ios": "NODE_OPTIONS='--no-experimental-strip-types' expo start --ios",
-    "build": "echo 'Mobile build handled by EAS'"
+    "build": "echo 'Mobile build handled by EAS'",
+    "test": "jest --passWithNoTests"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
@@ -39,8 +40,23 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
+    "@testing-library/react-native": "^12.9.0",
+    "@testing-library/jest-native": "^5.4.0",
     "@types/react": "~18.3.0",
     "dotenv": "^17.3.1",
+    "jest": "^29.7.0",
+    "jest-expo": "~52.0.0",
+    "react-test-renderer": "18.3.1",
     "typescript": "^5.7.0"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@reelrank/shared)"
+    ],
+    "setupFilesAfterSetup": ["@testing-library/jest-native/extend-expect"],
+    "moduleNameMapper": {
+      "^@reelrank/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+    }
   }
 }
