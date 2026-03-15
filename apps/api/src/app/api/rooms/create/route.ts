@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ROOM_CODE_LENGTH, CreateRoomInputSchema, ALGORITHM_VERSIONS } from '@reelrank/shared';
+import { ROOM_CODE_LENGTH, CreateRoomInputSchema, ALGORITHM_VERSIONS, type AlgorithmType } from '@reelrank/shared';
 import { withAuth, type AuthenticatedRequest } from '@/lib/auth';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { redis } from '@/lib/redis';
@@ -20,7 +20,7 @@ export const POST = withAuth(async (req: NextRequest, { user, requestId }: Authe
     const rateLimited = await withRateLimit(req, 'general');
     if (rateLimited) return rateLimited;
 
-    let algorithmVersion = ALGORITHM_VERSIONS.SIMPLE_MAJORITY;
+    let algorithmVersion: AlgorithmType = ALGORITHM_VERSIONS.SIMPLE_MAJORITY;
     try {
       const body = await req.json();
       const parsed = CreateRoomInputSchema.safeParse(body);

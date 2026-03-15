@@ -60,10 +60,10 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }: Authen
       .orderBy('watchedAt', 'desc')
       .get();
 
-    const entries = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+    const entries = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; movieId: number; [key: string]: unknown }));
 
     const movies = await Promise.all(
-      entries.map((e) => getMovieById(e.movieId as number).catch(() => null)),
+      entries.map((e) => getMovieById(e.movieId).catch(() => null)),
     );
 
     const results = entries
