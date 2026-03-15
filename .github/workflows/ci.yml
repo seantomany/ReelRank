@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: postgresql://test:test@localhost:5432/reelrank_test
       FIREBASE_PROJECT_ID: test-project
       FIREBASE_CLIENT_EMAIL: test@test.iam.gserviceaccount.com
       FIREBASE_PRIVATE_KEY: test-key
@@ -20,21 +19,6 @@ jobs:
       ABLY_API_KEY: test-ably-key
       UPSTASH_REDIS_REST_URL: https://test.upstash.io
       UPSTASH_REDIS_REST_TOKEN: test-token
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: reelrank_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -48,13 +32,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: pnpm db:generate
-
-      - name: Push DB Schema
-        run: pnpm db:push
-
-      - name: Type Check
+      - name: Type Check & Build
         run: pnpm build
 
       - name: Run Tests
