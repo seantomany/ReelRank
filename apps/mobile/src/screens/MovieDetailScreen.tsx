@@ -1,0 +1,208 @@
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { Text, Button, Chip, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../utils/api';
+import { OptimizedImage } from '../components/OptimizedImage';
+import { getBackdropUrl, getPosterUrl } from '@reelrank/shared';
+import { colors, spacing, borderRadius } from '../theme';
+import type { Movie, MovieUserStatus } from '@reelrank/shared';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
+
+interface MovieDetailScreenProps {
+  navigation: NativeStackNavigationProp<any>;
+  route: RouteProp<any>;
+}
+
+export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps) {
+  const { movieId } = route.params as { movieId: number };
+  const { getIdToken } = useAuth();
+  const [movie, setMovie] = useState<Movie | null>(null);
+  const [status, setStatus] = useState<MovieUserStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  useEffect(() => {
+    loadData();
+  }, [movieId]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const token = await getIdToken();
+      const [movieRes, statusRes] = await Promise.all([
+        api.movies.getMovie(movieId),
+        api.solo.status(movieId, token),
+      ]);
+      if (movieRes.data) setMovie(movieRes.data as Movie);
+      if (statusRes.data) setStatus(statusRes.data as MovieUserStatus);
+    } catch (error) {
+      console.error('Failed to load movie:', error);
+      setSnackbar({ visible: true, message: 'Failed to load movie details' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleWatchlist = async () => {
+    if (!movie) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const token = await getIdToken();
+      const direction = status?.swipeDirection === 'right' ? 'left' : 'right';
+      await api.solo.swipe(movie.id, direction, token);
+      setStatus((prev) => ({ ...prev, swipeDirection: direction }));
+    } catch (error) {
+      console.error('Failed to toggle watchlist:', error);
+      setSnackbar({ visible: true, message: 'Failed to update watchlist' });
+    }
+  };
+
+  if (loading || !movie) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  const isWanted = status?.swipeDirection === 'right';
+  const isWatched = !!status?.watched;
+
+  return (
+    <ScrollView style={styles.container}>
+      <OptimizedImage
+        uri={getBackdropUrl(movie.backdropPath, 'large')}
+        style={styles.backdrop}
+      />
+
+      <View style={styles.content}>
+        <View style={styles.headerRow}>
+          <OptimizedImage
+            uri={getPosterUrl(movie.posterPath, 'medium')}
+            style={styles.poster}
+          />
+          <View style={styles.headerInfo}>
+            <Text style={styles.title}>{movie.title}</Text>
+            <Text style={styles.meta}>
+              {movie.releaseDate?.split('-')[0]} · {movie.voteAverage.toFixed(1)} / 10
+            </Text>
+            {isWatched && status?.watched && (
+              <Chip icon="check" style={styles.watchedChip} textStyle={styles.watchedChipText}>
+                Watched · {status.watched.rating}/10
+              </Chip>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <Button
+            mode={isWanted ? 'contained' : 'outlined'}
+            onPress={toggleWatchlist}
+            style={styles.actionButton}
+            icon={() => <Ionicons name={isWanted ? 'heart' : 'heart-outline'} size={18} color={isWanted ? colors.onPrimary : colors.want} />}
+          >
+            {isWanted ? 'In Watchlist' : 'Add to Watchlist'}
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => navigation.navigate('LogWatched', { movieId: movie.id })}
+            style={styles.actionButton}
+            icon={() => <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />}
+          >
+            Log Watched
+          </Button>
+        </View>
+
+        <Text style={styles.sectionTitle}>Overview</Text>
+        <Text style={styles.overview}>{movie.overview}</Text>
+      </View>
+
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+        duration={3000}
+      >
+        {snackbar.message}
+      </Snackbar>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    width,
+    height: width * 0.56,
+  },
+  content: {
+    padding: spacing.lg,
+    marginTop: -spacing.xl,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  poster: {
+    width: 100,
+    height: 150,
+    borderRadius: borderRadius.md,
+  },
+  headerInfo: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  meta: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  watchedChip: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    backgroundColor: colors.success,
+  },
+  watchedChipText: {
+    color: colors.onPrimary,
+    fontSize: 12,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  overview: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+});
