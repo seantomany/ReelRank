@@ -17,5 +17,14 @@
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@react-native-async-storage/async-storage": ">=1.18.1",
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+      }
+    }
   }
 }

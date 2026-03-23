@@ -9,19 +9,52 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "pnpm"
+          cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
+
+      - name: Build shared package
+        run: pnpm turbo run build --filter=@reelrank/shared
+
+      - name: Build API
+        run: pnpm turbo run build --filter=@reelrank/api
+        env:
+          FIREBASE_PROJECT_ID: test
+          FIREBASE_CLIENT_EMAIL: test@test.iam.gserviceaccount.com
+          FIREBASE_PRIVATE_KEY: test
+          TMDB_API_KEY: test
+          ABLY_API_KEY: test
+          UPSTASH_REDIS_REST_URL: https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: test
+
+      - name: Build Web
+        run: pnpm turbo run build --filter=@reelrank/web
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: test
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: test.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: test
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: test.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "1:000:web:000"
+          NEXT_PUBLIC_API_URL: https://test.vercel.app
+
+      - name: Run API tests
+        run: pnpm turbo run test --filter=@reelrank/api
+        env:
+          FIREBASE_PROJECT_ID: test
+          FIREBASE_CLIENT_EMAIL: test@test.iam.gserviceaccount.com
+          FIREBASE_PRIVATE_KEY: test
+          TMDB_API_KEY: test
+          ABLY_API_KEY: test
+          UPSTASH_REDIS_REST_URL: https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: test
