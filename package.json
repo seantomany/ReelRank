@@ -11,6 +11,7 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
+    "eas-cli": "^18.4.0",
     "turbo": "^2.3.0"
   },
   "packageManager": "pnpm@9.15.4",

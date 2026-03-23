@@ -39,6 +39,9 @@ Thumbs.db
 # Testing
 coverage/
 
+# Vercel
+.vercel
+
 # Misc
 *.log
 npm-debug.log*

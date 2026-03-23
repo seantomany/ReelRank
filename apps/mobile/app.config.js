@@ -14,6 +14,9 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.reelrank.app',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       adaptiveIcon: {
@@ -34,9 +37,9 @@ export default {
       firebaseAppId: process.env.FIREBASE_APP_ID,
       apiUrl: process.env.API_URL ?? 'http://localhost:3001',
       eas: {
-        projectId: process.env.EAS_PROJECT_ID,
+        projectId: '1ab5830b-ef5e-4dbe-8808-a269399e6155',
       },
     },
-    plugins: [],
+    plugins: ['expo-dev-client'],
   },
 };
