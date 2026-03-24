@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -46,12 +45,12 @@ function AppleIcon({ className }: { className?: string }) {
 
 const POSTER_MOVIES = [
   { title: "Inception", poster: "/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg" },
-  { title: "The Dark Knight", poster: "/qJ2tW6WMUDux911jawTx2GHOASw.jpg" },
+  { title: "The Dark Knight", poster: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg" },
   { title: "Interstellar", poster: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg" },
   { title: "Parasite", poster: "/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg" },
   { title: "Dune", poster: "/d5NXSklXo0qyIYkgV94XAgMIckC.jpg" },
   { title: "Oppenheimer", poster: "/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg" },
-  { title: "Spider-Verse", poster: "/8Vt6mWEReuy7Of61Lnj5Xj704m8.jpg" },
+  { title: "Spider-Verse", poster: "/iiZZdoQBEYBv6id8su7ImL0oCbD.jpg" },
   { title: "Everything Everywhere", poster: "/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg" },
   { title: "The Godfather", poster: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg" },
   { title: "Pulp Fiction", poster: "/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg" },
@@ -63,17 +62,17 @@ const POSTER_MOVIES = [
 
 const POSTER_MOVIES_2 = [
   { title: "Joker", poster: "/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg" },
-  { title: "Get Out", poster: "/qba4ACIDfMcbLshl15KnbMGFMfj.jpg" },
+  { title: "Get Out", poster: "/tFXcEccSQMf3lfhfXKSU9iRBpa3.jpg" },
   { title: "Arrival", poster: "/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg" },
   { title: "Mad Max", poster: "/8tZYtuWezp8JbcsvHYO0O46tFbo.jpg" },
   { title: "Blade Runner 2049", poster: "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg" },
   { title: "1917", poster: "/iZf0KyrE25z1sage4SYFLCCrMi9.jpg" },
   { title: "Knives Out", poster: "/pThyQovXQrw2m0s9x82twj48Jq4.jpg" },
   { title: "The Batman", poster: "/74xTEgt7R36Fpooo50r9T25onhq.jpg" },
-  { title: "No Country", poster: "/bj1v6YKF8yHqA489GFfAWcKENvr.jpg" },
+  { title: "No Country", poster: "/4CXgye1p8Vr7taDG389QhhHDUZ4.jpg" },
   { title: "John Wick", poster: "/fZPSd91yGE9fCcCe6OoQr6E3Bev.jpg" },
-  { title: "Hereditary", poster: "/4GFPuL14eXi9PnEEPMEoSMFlavx.jpg" },
-  { title: "The Revenant", poster: "/ji3ecJphATlVgWNY0B4RKm4y1pC.jpg" },
+  { title: "Hereditary", poster: "/hjlZSXM86wJrfCv5VKfR5DI2VeU.jpg" },
+  { title: "The Revenant", poster: "/ji3ecJphATlVgWNY0B0RVXZizdf.jpg" },
   { title: "Moonlight", poster: "/4911T5FbJ9eD2Faz5Z8cT3SUhU3.jpg" },
   { title: "Dunkirk", poster: "/ebSnODDg9lbsMIaWg2uAbjn7TO5.jpg" },
 ];
@@ -139,17 +138,32 @@ const FEATURES = [
   },
 ];
 
-function PosterCard({ title, poster, index }: { title: string; poster: string; index: number }) {
+function TmdbImg({ path, alt, width, height, className }: { path: string; alt: string; width: number; height: number; className?: string }) {
+  return (
+    <img
+      src={`https://image.tmdb.org/t/p/w342${path}`}
+      alt=""
+      width={width}
+      height={height}
+      className={className}
+      loading="eager"
+      decoding="async"
+      style={{ backgroundColor: "#111" }}
+      onError={(e) => { e.currentTarget.style.display = "none"; }}
+    />
+  );
+}
+
+function PosterCard({ title, poster }: { title: string; poster: string; index?: number }) {
   return (
     <div className="shrink-0 w-[120px] md:w-[150px]">
-      <div className="aspect-[2/3] rounded-lg overflow-hidden relative group">
-        <Image
-          src={`https://image.tmdb.org/t/p/w342${poster}`}
+      <div className="aspect-[2/3] rounded-lg overflow-hidden relative group bg-[#111]">
+        <TmdbImg
+          path={poster}
           alt={title}
           width={150}
           height={225}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          unoptimized
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
@@ -171,13 +185,12 @@ function SwipeCardMockup() {
       <div className="absolute top-1.5 left-1.5 right-1.5 aspect-[2/3] rounded-2xl bg-[#151515] border border-[rgba(255,255,255,0.05)] transform -rotate-1" />
       {/* Front card */}
       <div className="relative aspect-[2/3] rounded-2xl overflow-hidden border border-[rgba(255,255,255,0.08)] shadow-2xl">
-        <Image
-          src="https://image.tmdb.org/t/p/w342/d5NXSklXo0qyIYkgV94XAgMIckC.jpg"
+        <TmdbImg
+          path="/d5NXSklXo0qyIYkgV94XAgMIckC.jpg"
           alt="Dune"
           width={260}
           height={390}
           className="w-full h-full object-cover"
-          unoptimized
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -267,13 +280,12 @@ function ResultsMockup() {
         <p className="text-[10px] uppercase tracking-widest text-[#ff2d55] mb-3 text-center">GROUP PICK</p>
         <div className="flex justify-center mb-3">
           <div className="w-[100px] aspect-[2/3] rounded-lg overflow-hidden shadow-xl">
-            <Image
-              src="https://image.tmdb.org/t/p/w342/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg"
+            <TmdbImg
+              path="/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg"
               alt="Interstellar"
               width={100}
               height={150}
               className="w-full h-full object-cover"
-              unoptimized
             />
           </div>
         </div>
