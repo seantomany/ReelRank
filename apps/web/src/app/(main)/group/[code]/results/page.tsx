@@ -170,8 +170,12 @@ export default function ResultsPage(props: {
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-[10px] text-[#ff2d55]">Yes:</span>
             {yes.map((v) => (
-              <span key={v.userId} className="text-[10px] text-[#888] bg-[#111] px-1.5 py-0.5 rounded">
-                {v.username ?? v.userId.slice(0, 8)}
+              <span key={v.userId} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                (v as any).superlike
+                  ? "text-amber-400 bg-amber-400/10 border border-amber-400/20"
+                  : "text-[#888] bg-[#111]"
+              }`}>
+                {(v as any).superlike ? "★ " : ""}{v.username ?? v.userId.slice(0, 8)}
               </span>
             ))}
           </div>
@@ -359,6 +363,9 @@ export default function ResultsPage(props: {
                     <p className="text-sm text-[#e8e8e8] truncate">{m.username ?? m.userId.slice(0, 8)}</p>
                     <p className="text-xs text-[#888] tabular-nums">
                       {m.rightCount} yes · {m.leftCount} no · {m.agreementScore}% agreement
+                      {(m as any).superlikeMovieId && (
+                        <span className="text-amber-400"> · ★ superliked</span>
+                      )}
                     </p>
                   </div>
                 </div>

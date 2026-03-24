@@ -89,6 +89,7 @@ export interface RoomSwipe {
   userId: string;
   movieId: number;
   direction: SwipeDirection;
+  superlike?: boolean;
   createdAt: Date;
 }
 

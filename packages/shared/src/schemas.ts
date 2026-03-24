@@ -40,6 +40,7 @@ export const SubmitMovieInputSchema = z.object({
 export const RoomSwipeInputSchema = z.object({
   movieId: z.number().int().positive(),
   direction: SwipeDirectionSchema,
+  superlike: z.boolean().optional(),
 });
 
 export const StartRoomInputSchema = z.object({

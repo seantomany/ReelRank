@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuthAndRateLimit } from '@/lib/middleware';
 import { findRoomByCode, verifyRoomMembership, validateRoomCode } from '@/lib/route-helpers';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
-import { getRedis } from '@/lib/redis';
-import { publishToRoom } from '@/lib/ably';
 import { safeGetMovieById } from '@/lib/tmdb';
 import { computeSimpleMajority, computeEloGroup, computeRankedChoice } from '@/lib/algorithms';
 import { ABLY_EVENTS } from '@reelrank/shared';
 import type { Movie, RoomSwipe, AlgorithmType, SwipeDirection } from '@reelrank/shared';
 import { ApiError } from '@/lib/errors';
+import { publishToRoom } from '@/lib/ably';
 
 async function getMemberDetails(roomRef: FirebaseFirestore.DocumentReference) {
   const [swipesSnap, moviesSnap, membersSnap] = await Promise.all([
@@ -33,6 +32,7 @@ async function getMemberDetails(roomRef: FirebaseFirestore.DocumentReference) {
       username: getUsername(data.userId),
       movieId: data.movieId as number,
       direction: data.direction as SwipeDirection,
+      superlike: (data.superlike as boolean) ?? false,
     };
   });
 
@@ -51,6 +51,7 @@ async function getMemberDetails(roomRef: FirebaseFirestore.DocumentReference) {
     const userSwipes = memberVotes.filter((v) => v.userId === userId);
     const rightCount = userSwipes.filter((v) => v.direction === 'right').length;
     const leftCount = userSwipes.filter((v) => v.direction === 'left').length;
+    const superlikeMovie = userSwipes.find((v) => v.superlike);
 
     const rightMovieIds = new Set(userSwipes.filter((v) => v.direction === 'right').map((v) => v.movieId));
     const allRightSets = memberIds
@@ -74,6 +75,7 @@ async function getMemberDetails(roomRef: FirebaseFirestore.DocumentReference) {
       rightCount,
       leftCount,
       agreementScore,
+      superlikeMovieId: superlikeMovie?.movieId ?? null,
     };
   });
 
@@ -110,99 +112,86 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     throw new ApiError(400, 'Room has not started swiping yet', requestId);
   }
 
-  const redis = getRedis();
-  const lockKey = `results-lock:${roomId}`;
-  const acquired = await redis.set(lockKey, '1', { nx: true, ex: 30 });
+  const membersSnap = await roomRef.collection('members').get();
+  const allMembersDone = membersSnap.docs.every((d) => d.data().doneAt != null);
 
-  if (!acquired) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    const retryResults = await roomRef
-      .collection('results')
-      .orderBy('computedAt', 'desc')
-      .limit(1)
-      .get();
-
-    if (!retryResults.empty) {
-      const { memberVotes, submissions, memberStats } = await getMemberDetails(roomRef);
-      return NextResponse.json({
-        data: { ...retryResults.docs[0].data(), memberVotes, submissions, memberStats },
-        requestId,
-      });
-    }
-    throw new ApiError(409, 'Results are being computed, please try again', requestId);
+  if (!allMembersDone) {
+    const doneCount = membersSnap.docs.filter((d) => d.data().doneAt != null).length;
+    throw new ApiError(
+      409,
+      `Waiting for all members to finish swiping (${doneCount}/${membersSnap.size} done)`,
+      requestId
+    );
   }
 
-  try {
-    const { memberVotes, submissions, memberStats, swipesSnap, moviesSnap, membersSnap } = await getMemberDetails(roomRef);
+  const { memberVotes, submissions, memberStats, swipesSnap, moviesSnap } = await getMemberDetails(roomRef);
 
-    const swipes: RoomSwipe[] = swipesSnap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        roomId,
-        userId: data.userId,
-        movieId: data.movieId,
-        direction: data.direction,
-        createdAt: data.createdAt?.toDate?.() ?? data.createdAt,
-      };
-    });
-
-    const warnings: string[] = [];
-    const movieIds = moviesSnap.docs.map((d) => d.data().movieId);
-    const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
-
-    const movies: Movie[] = movieResults.map(({ movie, hydrated }) => {
-      if (!hydrated) warnings.push(`Movie ${movie.id} could not be loaded from TMDB`);
-      return movie;
-    });
-
-    const totalMembers = membersSnap.size;
-    const algorithmVersion = (room.algorithmVersion ?? 'simple_majority_v1') as AlgorithmType;
-
-    let rankedMovies;
-    switch (algorithmVersion) {
-      case 'elo_group_v1':
-        rankedMovies = computeEloGroup(swipes, movies, totalMembers);
-        break;
-      case 'ranked_choice_v1':
-        rankedMovies = computeRankedChoice(swipes, movies, totalMembers);
-        break;
-      default:
-        rankedMovies = computeSimpleMajority(swipes, movies, totalMembers);
-    }
-
-    const now = new Date();
-    const resultRef = roomRef.collection('results').doc();
-    const resultData = {
-      id: resultRef.id,
+  const swipes: RoomSwipe[] = swipesSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
       roomId,
-      computedAt: now,
-      algorithmVersion,
-      rankedMovies,
+      userId: data.userId,
+      movieId: data.movieId,
+      direction: data.direction,
+      superlike: data.superlike ?? false,
+      createdAt: data.createdAt?.toDate?.() ?? data.createdAt,
     };
+  });
 
-    await resultRef.set(resultData);
+  const warnings: string[] = [];
+  const movieIds = moviesSnap.docs.map((d) => d.data().movieId);
+  const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
 
-    await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
-      status: 'results',
-      updatedAt: now,
-    });
+  const movies: Movie[] = movieResults.map(({ movie, hydrated }) => {
+    if (!hydrated) warnings.push(`Movie ${movie.id} could not be loaded from TMDB`);
+    return movie;
+  });
 
-    await publishToRoom(room.code, ABLY_EVENTS.RESULTS_READY, {
-      resultId: resultRef.id,
-    });
+  const totalMembers = membersSnap.size;
+  const algorithmVersion = (room.algorithmVersion ?? 'simple_majority_v1') as AlgorithmType;
 
-    return NextResponse.json({
-      data: {
-        ...resultData,
-        memberVotes,
-        submissions,
-        memberStats,
-      },
-      ...(warnings.length > 0 ? { warnings } : {}),
-      requestId,
-    });
-  } finally {
-    await redis.del(lockKey);
+  let rankedMovies;
+  switch (algorithmVersion) {
+    case 'elo_group_v1':
+      rankedMovies = computeEloGroup(swipes, movies, totalMembers);
+      break;
+    case 'ranked_choice_v1':
+      rankedMovies = computeRankedChoice(swipes, movies, totalMembers);
+      break;
+    default:
+      rankedMovies = computeSimpleMajority(swipes, movies, totalMembers);
   }
+
+  const now = new Date();
+  const resultRef = roomRef.collection('results').doc();
+  const resultData = {
+    id: resultRef.id,
+    roomId,
+    computedAt: now,
+    algorithmVersion,
+    rankedMovies,
+  };
+
+  await resultRef.set(resultData);
+
+  await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
+    status: 'results',
+    updatedAt: now,
+  });
+
+  await publishToRoom(room.code, ABLY_EVENTS.RESULTS_READY, {
+    resultId: resultRef.id,
+  });
+
+  return NextResponse.json({
+    data: {
+      ...resultData,
+      memberVotes,
+      submissions,
+      memberStats,
+    },
+    ...(warnings.length > 0 ? { warnings } : {}),
+    requestId,
+  });
 });

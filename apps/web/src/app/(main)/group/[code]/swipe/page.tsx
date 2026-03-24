@@ -9,7 +9,7 @@ import {
   useMotionValue,
   useTransform,
 } from "framer-motion";
-import { X, Check } from "lucide-react";
+import { X, Check, Star } from "lucide-react";
 import { api } from "@/lib/api";
 import { subscribeToRoom } from "@/lib/ably";
 import { toast } from "sonner";
@@ -31,6 +31,9 @@ export default function GroupSwipePage(props: {
   const [swiping, setSwiping] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exitDir, setExitDir] = useState<"left" | "right">("right");
+  const [superlikeUsed, setSuperlikeUsed] = useState(false);
+  const [doneMembers, setDoneMembers] = useState<Set<string>>(new Set());
+  const [totalMembers, setTotalMembers] = useState(0);
 
   const total = movies.length;
   const progress = total > 0 ? (currentIndex / total) * 100 : 0;
@@ -47,6 +50,8 @@ export default function GroupSwipePage(props: {
           .map((rm) => rm.movie)
           .filter(Boolean) as Movie[];
         setMovies(list);
+        const members = res.data.members ?? [];
+        setTotalMembers(members.length);
       } else if (res.error) {
         toast.error(res.error);
       }
@@ -57,6 +62,12 @@ export default function GroupSwipePage(props: {
   useEffect(() => {
     const unsubscribe = subscribeToRoom(code, {
       [ABLY_EVENTS.SWIPE_PROGRESS]: () => {},
+      [ABLY_EVENTS.MEMBER_DONE]: (data: unknown) => {
+        const payload = data as { userId?: string };
+        if (payload.userId) {
+          setDoneMembers((prev) => new Set(prev).add(payload.userId!));
+        }
+      },
       [ABLY_EVENTS.RESULTS_READY]: () => {
         router.push(`/group/${code}/results`);
       },
@@ -70,60 +81,46 @@ export default function GroupSwipePage(props: {
     return unsubscribe;
   }, [code, router]);
 
-  useEffect(() => {
-    if (!allDone) return;
-    let cancelled = false;
-
-    async function tryResults() {
-      await new Promise((r) => setTimeout(r, 1500));
-      if (cancelled) return;
-
-      const res = await api.rooms.results(code);
-      if (!cancelled && res.data) {
-        router.push(`/group/${code}/results`);
-        return;
-      }
-
-      const interval = setInterval(async () => {
-        if (cancelled) return;
-        const roomRes = await api.rooms.get(code);
-        if (roomRes.data?.status === "results") {
-          clearInterval(interval);
-          router.push(`/group/${code}/results`);
-        }
-      }, 4000);
-
-      return () => clearInterval(interval);
-    }
-
-    tryResults();
-    return () => { cancelled = true; };
-  }, [allDone, code, router]);
-
   const handleSwipe = useCallback(
-    async (direction: "left" | "right") => {
+    async (direction: "left" | "right", superlike = false) => {
       if (swiping || currentIndex >= movies.length) return;
+      if (superlike && superlikeUsed) return;
+
       setExitDir(direction);
       setSwiping(true);
 
       const movie = movies[currentIndex];
-      const res = await api.rooms.swipe(code, movie.id, direction);
-      if (res.error) toast.error(res.error);
+      const res = await api.rooms.swipe(code, movie.id, direction, superlike || undefined);
+
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        if (superlike) setSuperlikeUsed(true);
+        if (res.data?.allDone) {
+          router.push(`/group/${code}/results`);
+          return;
+        }
+      }
 
       setCurrentIndex((prev) => prev + 1);
       setSwiping(false);
     },
-    [swiping, currentIndex, movies, code]
+    [swiping, currentIndex, movies, code, superlikeUsed, router]
   );
+
+  const handleSuperlike = useCallback(() => {
+    handleSwipe("right", true);
+  }, [handleSwipe]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") handleSwipe("left");
       else if (e.key === "ArrowRight") handleSwipe("right");
+      else if (e.key === "ArrowUp") handleSuperlike();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSwipe]);
+  }, [handleSwipe, handleSuperlike]);
 
   if (loading) {
     return (
@@ -153,11 +150,16 @@ export default function GroupSwipePage(props: {
       </p>
 
       {allDone ? (
-        <div className="flex flex-col items-center py-20">
+        <div className="flex flex-col items-center py-20 gap-4">
           <p className="flex items-center gap-2 text-sm text-[#888]">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff2d55] animate-pulse" />
             Waiting for others to finish
           </p>
+          {totalMembers > 0 && (
+            <p className="text-xs text-[#555] tabular-nums">
+              {doneMembers.size + 1}/{totalMembers} done
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -179,13 +181,25 @@ export default function GroupSwipePage(props: {
             </AnimatePresence>
           </div>
 
-          <div className="mt-6 flex items-center gap-8">
+          <div className="mt-6 flex items-center gap-5">
             <button
               onClick={() => handleSwipe("left")}
               disabled={swiping}
               className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#888] transition-colors hover:text-red-400 disabled:opacity-40"
             >
               <X className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleSuperlike}
+              disabled={swiping || superlikeUsed}
+              className={`flex h-14 w-14 items-center justify-center rounded-full border transition-all ${
+                superlikeUsed
+                  ? "border-[rgba(255,255,255,0.05)] text-[#333] cursor-not-allowed"
+                  : "border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:scale-105"
+              }`}
+              title={superlikeUsed ? "Superlike already used" : "Superlike (1 per session)"}
+            >
+              <Star className={`h-6 w-6 ${superlikeUsed ? "" : "fill-amber-400"}`} />
             </button>
             <button
               onClick={() => handleSwipe("right")}
@@ -197,8 +211,14 @@ export default function GroupSwipePage(props: {
           </div>
 
           <p className="mt-3 hidden text-xs text-[#888] md:block">
-            ← Pass · Want →
+            ← Pass · ↑ Superlike · Want →
           </p>
+
+          {!superlikeUsed && (
+            <p className="mt-1 text-[10px] text-amber-400/60">
+              1 superlike remaining — counts 3×
+            </p>
+          )}
         </>
       )}
     </div>

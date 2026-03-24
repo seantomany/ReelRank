@@ -1,5 +1,9 @@
 import type { Movie, MovieScore, RoomSwipe } from '@reelrank/shared';
-import { ELO_K_FACTOR, ELO_INITIAL_RATING } from '@reelrank/shared';
+import { ELO_K_FACTOR, ELO_INITIAL_RATING, SUPERLIKE_WEIGHT } from '@reelrank/shared';
+
+function getSwipeWeight(swipe: RoomSwipe): number {
+  return swipe.superlike ? SUPERLIKE_WEIGHT : 1;
+}
 
 export function computeSimpleMajority(
   swipes: RoomSwipe[],
@@ -7,17 +11,22 @@ export function computeSimpleMajority(
   totalMembers: number
 ): MovieScore[] {
   const movieMap = new Map(movies.map((m) => [m.id, m]));
-  const scoreMap = new Map<number, { right: number; left: number }>();
+  const scoreMap = new Map<number, { right: number; left: number; superliked: boolean }>();
 
   for (const movie of movies) {
-    scoreMap.set(movie.id, { right: 0, left: 0 });
+    scoreMap.set(movie.id, { right: 0, left: 0, superliked: false });
   }
 
   for (const swipe of swipes) {
     const counts = scoreMap.get(swipe.movieId);
     if (!counts) continue;
-    if (swipe.direction === 'right') counts.right++;
-    else counts.left++;
+    const weight = getSwipeWeight(swipe);
+    if (swipe.direction === 'right') {
+      counts.right += weight;
+      if (swipe.superlike) counts.superliked = true;
+    } else {
+      counts.left++;
+    }
   }
 
   const results: MovieScore[] = [];
@@ -81,6 +90,7 @@ export function computeEloGroup(
     const leftSwiped = userSwipeList.filter((s) => s.direction === 'left');
 
     for (const winner of rightSwiped) {
+      const weight = getSwipeWeight(winner);
       for (const loser of leftSwiped) {
         const winnerElo = elos.get(winner.movieId) ?? ELO_INITIAL_RATING;
         const loserElo = elos.get(loser.movieId) ?? ELO_INITIAL_RATING;
@@ -90,7 +100,7 @@ export function computeEloGroup(
 
         elos.set(
           winner.movieId,
-          winnerElo + ELO_K_FACTOR * (1 - expectedWinner)
+          winnerElo + ELO_K_FACTOR * weight * (1 - expectedWinner)
         );
         elos.set(
           loser.movieId,

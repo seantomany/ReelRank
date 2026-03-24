@@ -240,10 +240,10 @@ export const api = {
         `/api/rooms/${code}/submit`,
         { method: "POST", body: JSON.stringify({ movieId }) }
       ),
-    swipe: (code: string, movieId: number, direction: "left" | "right") =>
-      apiFetch<{ movieId: number; direction: string; progress: number }>(
+    swipe: (code: string, movieId: number, direction: "left" | "right", superlike?: boolean) =>
+      apiFetch<{ movieId: number; direction: string; superlike: boolean; progress: number; userDone: boolean; allDone: boolean }>(
         `/api/rooms/${code}/swipe`,
-        { method: "POST", body: JSON.stringify({ movieId, direction }) }
+        { method: "POST", body: JSON.stringify({ movieId, direction, superlike }) }
       ),
     results: (code: string) =>
       apiFetch<import("@reelrank/shared").RoomResult>(

@@ -43,11 +43,14 @@ export function getRoomChannelName(roomCode: string): string {
   return `${ABLY_CHANNEL_PREFIX}:${roomCode}`;
 }
 
+export const SUPERLIKE_WEIGHT = 3;
+
 export const ABLY_EVENTS = {
   MEMBER_JOINED: 'member:joined',
   MEMBER_LEFT: 'member:left',
   ROOM_STATUS: 'room:status',
   MOVIE_SUBMITTED: 'movie:submitted',
   SWIPE_PROGRESS: 'swipe:progress',
+  MEMBER_DONE: 'member:done',
   RESULTS_READY: 'results:ready',
 } as const;
