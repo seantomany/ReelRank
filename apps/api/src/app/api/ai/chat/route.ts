@@ -55,7 +55,7 @@ async function gatherUserContext(userId: string): Promise<string> {
   // Rankings
   if (rankedIds.length > 0) {
     const total = rankedIds.length;
-    const lines = rankedIds.slice(0, 25).map((id, i) => {
+    const lines = rankedIds.slice(0, 15).map((id, i) => {
       const m = movieMap.get(id);
       const score = total <= 1 ? 10 : Math.round(((total - 1 - i) / (total - 1)) * 100) / 10;
       const genres = m?.genreIds.map(g => GENRE_NAMES[g]).filter(Boolean).join(', ') ?? '';
@@ -69,7 +69,7 @@ async function gatherUserContext(userId: string): Promise<string> {
     const lines = watchedDocs
       .filter(w => w.rating > 0)
       .sort((a, b) => b.rating - a.rating)
-      .slice(0, 30)
+      .slice(0, 15)
       .map(w => {
         const m = movieMap.get(w.movieId);
         return `- ${m?.title ?? `Movie #${w.movieId}`} (${m?.releaseDate?.slice(0, 4) ?? '?'}): ${w.rating}/10`;
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     let stream;
     try {
       stream = await client.messages.stream({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 1024,
         system: systemPrompt,
         messages: messages.map(m => ({ role: m.role, content: m.content })),
