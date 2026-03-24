@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Search, Home, Compass, Users, User } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
@@ -34,8 +35,9 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
     <>
       {/* Desktop top nav */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-40 h-14 items-center justify-between px-6 bg-[#000]/95 backdrop-blur-sm border-b border-[rgba(255,255,255,0.06)]">
-        <Link href="/" className="text-base font-semibold text-[#e8e8e8] tracking-tight">
-          ReelRank
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/logo.png" alt="ReelRank" width={28} height={28} className="w-7 h-7" />
+          <span className="text-base font-semibold text-[#e8e8e8] tracking-tight">ReelRank</span>
         </Link>
 
         <div className="flex items-center gap-6">
@@ -91,7 +93,10 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
 
       {/* Mobile top bar */}
       <nav className="md:hidden fixed top-0 left-0 right-0 z-40 h-12 flex items-center justify-between px-4 bg-[#000]/95">
-        <span className="text-sm font-semibold text-[#e8e8e8]">ReelRank</span>
+        <Link href="/" className="flex items-center gap-1.5">
+          <Image src="/logo.png" alt="ReelRank" width={24} height={24} className="w-6 h-6" />
+          <span className="text-sm font-semibold text-[#e8e8e8]">ReelRank</span>
+        </Link>
         <button onClick={onSearchOpen} className="text-[#888] p-1 cursor-pointer" aria-label="Search">
           <Search className="w-4 h-4" />
         </button>

@@ -384,7 +384,7 @@ export function LandingPage() {
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <Film className="w-5 h-5 text-[#ff2d55]" />
+          <img src="/logo.png" alt="" width={24} height={24} className="w-6 h-6" />
           <span className="text-lg font-bold tracking-tight">ReelRank</span>
         </button>
         <div className="flex items-center gap-3">
