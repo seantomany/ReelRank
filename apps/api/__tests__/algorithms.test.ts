@@ -57,7 +57,7 @@ describe('computeSimpleMajority', () => {
     expect(result[2].movieId).toBe(2);
   });
 
-  it('includes popularity and rating bonuses', () => {
+  it('scores purely on vote percentage with no TMDB bonuses', () => {
     const movies = [
       makeMovie(1, { popularity: 100, voteAverage: 8.0 }),
       makeMovie(2, { popularity: 10, voteAverage: 5.0 }),
@@ -68,9 +68,10 @@ describe('computeSimpleMajority', () => {
     ];
 
     const result = computeSimpleMajority(swipes, movies, 1);
-    expect(result[0].popularityBonus).toBeGreaterThan(0);
-    expect(result[0].ratingBonus).toBeGreaterThan(0);
-    expect(result[0].finalScore).toBeGreaterThan(result[0].score);
+    expect(result[0].popularityBonus).toBe(0);
+    expect(result[0].ratingBonus).toBe(0);
+    expect(result[0].finalScore).toBe(result[0].score);
+    expect(result[0].finalScore).toBe(100);
   });
 
   it('handles empty swipes', () => {
