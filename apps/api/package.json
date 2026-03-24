@@ -11,6 +11,7 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@reelrank/shared": "workspace:*",
     "@upstash/redis": "^1.34.3",
     "ably": "^2.4.1",

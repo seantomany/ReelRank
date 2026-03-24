@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Search, Home, Compass, Users, User } from "lucide-react";
+import { Search, Home, Compass, Users, User, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
@@ -11,6 +11,7 @@ import { useState, useRef, useEffect } from "react";
 const tabs = [
   { href: "/", label: "Home", icon: Home },
   { href: "/discover", label: "Discover", icon: Compass },
+  { href: "/ai", label: "AI", icon: Sparkles },
   { href: "/group", label: "Group", icon: Users },
   { href: "/profile", label: "Profile", icon: User },
 ];

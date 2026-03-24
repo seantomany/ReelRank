@@ -15,4 +15,5 @@ export const env = {
   get ABLY_API_KEY() { return requireEnv('ABLY_API_KEY'); },
   get UPSTASH_REDIS_REST_URL() { return requireEnv('UPSTASH_REDIS_REST_URL'); },
   get UPSTASH_REDIS_REST_TOKEN() { return requireEnv('UPSTASH_REDIS_REST_TOKEN'); },
+  get ANTHROPIC_API_KEY() { return requireEnv('ANTHROPIC_API_KEY'); },
 };

@@ -259,6 +259,62 @@ export const api = {
         method: "POST",
       }),
   },
+  ai: {
+    chat: async (
+      messages: { role: "user" | "assistant"; content: string }[],
+      onChunk: (text: string) => void,
+      signal?: AbortSignal
+    ) => {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/ai/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ messages }),
+        signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error ?? `Request failed (${res.status})`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") return;
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.text) onChunk(parsed.text);
+            if (parsed.error) throw new Error(parsed.error);
+          } catch {
+            // skip malformed chunks
+          }
+        }
+      }
+    },
+    movieCard: (id: number) =>
+      cachedGet<import("@reelrank/shared").Movie>(
+        `/api/ai/movie-card/${id}`,
+        120_000
+      ),
+  },
   auth: {
     verify: () =>
       apiFetch<import("@reelrank/shared").User>("/api/auth/verify", {
