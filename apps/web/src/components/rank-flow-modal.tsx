@@ -14,16 +14,17 @@ interface RankFlowModalProps {
   onClose: () => void;
   onSkip?: () => void;
   onRanked?: (rankings: SoloRanking[]) => void;
+  rating?: number;
 }
 
 type Step = "triage" | "compare" | "done";
 
-const TRIAGE_OPTIONS: { zone: TriageZone; label: string; emoji: string }[] = [
-  { zone: "loved", label: "Loved it", emoji: "🤩" },
-  { zone: "liked", label: "Liked it", emoji: "😊" },
-  { zone: "okay", label: "It was okay", emoji: "😐" },
-  { zone: "disliked", label: "Didn't like it", emoji: "😕" },
-];
+function ratingToZone(rating: number): TriageZone {
+  if (rating >= 9) return "loved";
+  if (rating >= 7) return "liked";
+  if (rating >= 5) return "okay";
+  return "disliked";
+}
 
 function getTriageRange(zone: TriageZone, total: number): [number, number] {
   if (total === 0) return [0, 0];
@@ -36,7 +37,7 @@ function getTriageRange(zone: TriageZone, total: number): [number, number] {
   }
 }
 
-export function RankFlowModal({ movie, open, onClose, onSkip, onRanked }: RankFlowModalProps) {
+export function RankFlowModal({ movie, open, onClose, onSkip, onRanked, rating }: RankFlowModalProps) {
   const [step, setStep] = useState<Step>("triage");
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [low, setLow] = useState(0);
@@ -46,11 +47,13 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked }: RankFl
   const [insertIndex, setInsertIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [flashId, setFlashId] = useState<number | null>(null);
+  const [rankingsLoaded, setRankingsLoaded] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setStep("triage");
       setRankings([]);
+      setRankingsLoaded(false);
       setLow(0);
       setHigh(0);
       setMid(0);
@@ -59,8 +62,15 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked }: RankFl
 
     api.solo.ranking().then((res) => {
       if (res.data) setRankings(res.data);
+      setRankingsLoaded(true);
     });
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !rankingsLoaded || step !== "triage" || rating == null) return;
+    const zone = ratingToZone(rating);
+    startCompare(zone);
+  }, [open, rankingsLoaded, rating, step, startCompare]);
 
   const startCompare = useCallback((zone: TriageZone) => {
     if (rankings.length === 0) {
@@ -170,21 +180,32 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked }: RankFl
             </div>
             <h2 className="text-lg font-semibold text-[#e8e8e8] text-center">{movie.title}</h2>
             {year && <p className="text-sm text-[#888] mt-0.5">{year}</p>}
-            <p className="text-xs text-[#888] mt-4 mb-6">How did you feel about it?</p>
-            <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
-              {TRIAGE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.zone}
-                  onClick={() => handleTriage(opt.zone)}
-                  className="flex items-center gap-2 rounded-lg bg-[#111] px-4 py-3 text-sm text-[#e8e8e8] transition-colors hover:bg-[#1a1a1a] active:bg-[#222]"
-                >
-                  <span className="text-lg">{opt.emoji}</span>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {rankings.length === 0 && (
-              <p className="text-xs text-[#888] mt-4">This will be your first ranked movie!</p>
+            {rating != null ? (
+              <p className="text-xs text-[#888] mt-4">Finding the right spot...</p>
+            ) : (
+              <>
+                <p className="text-xs text-[#888] mt-4 mb-6">How did you feel about it?</p>
+                <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+                  {([
+                    { zone: "loved" as TriageZone, label: "Loved it", emoji: "🤩" },
+                    { zone: "liked" as TriageZone, label: "Liked it", emoji: "😊" },
+                    { zone: "okay" as TriageZone, label: "It was okay", emoji: "😐" },
+                    { zone: "disliked" as TriageZone, label: "Didn't like it", emoji: "😕" },
+                  ]).map((opt) => (
+                    <button
+                      key={opt.zone}
+                      onClick={() => handleTriage(opt.zone)}
+                      className="flex items-center gap-2 rounded-lg bg-[#111] px-4 py-3 text-sm text-[#e8e8e8] transition-colors hover:bg-[#1a1a1a] active:bg-[#222]"
+                    >
+                      <span className="text-lg">{opt.emoji}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {rankings.length === 0 && (
+                  <p className="text-xs text-[#888] mt-4">This will be your first ranked movie!</p>
+                )}
+              </>
             )}
             <button onClick={onSkip ?? onClose} className="mt-6 text-xs text-[#888] hover:text-[#aaa] transition-colors">
               Skip ranking

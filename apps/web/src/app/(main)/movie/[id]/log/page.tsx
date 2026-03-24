@@ -71,6 +71,7 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
       <RankFlowModal
         movie={movie}
         open
+        rating={rating}
         onClose={() => router.push(`/movie/${id}`)}
         onSkip={() => router.push(`/movie/${id}`)}
       />

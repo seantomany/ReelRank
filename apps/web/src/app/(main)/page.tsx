@@ -32,18 +32,20 @@ export default function HomePage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [watchlist, setWatchlist] = useState<(SoloSwipe & { movie: Movie })[]>([]);
   const [watched, setWatched] = useState<(WatchedMovie & { movie?: Movie })[]>([]);
+  const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function load() {
-      const [statsRes, trendingRes, genresRes, watchlistRes, watchedRes] = await Promise.all([
+      const [statsRes, trendingRes, genresRes, watchlistRes, watchedRes, suggestionsRes] = await Promise.all([
         api.solo.stats(),
         api.movies.trending(),
         api.movies.genres(),
         api.solo.lists("want"),
         api.solo.watched(),
+        api.solo.suggestions(),
       ]);
 
       if (!mounted) return;
@@ -55,6 +57,7 @@ export default function HomePage() {
       if (genresRes.data) setGenres(genresRes.data);
       if (watchlistRes.data) setWatchlist(watchlistRes.data);
       if (watchedRes.data) setWatched(watchedRes.data);
+      if (suggestionsRes.data) setSuggestions(suggestionsRes.data);
 
       setLoading(false);
     }
@@ -129,6 +132,41 @@ export default function HomePage() {
                     )}
                   </div>
                   <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{item.movie.title}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Suggested For You */}
+      {suggestions.length > 0 && (
+        <section className="mt-6">
+          <div className="flex items-baseline justify-between pl-4 md:pl-6 pr-4 md:pr-6 mb-2">
+            <p className="text-xs uppercase tracking-widest text-[#888]">Suggested For You</p>
+            <Link href="/discover" className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+              Discover
+            </Link>
+          </div>
+          <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
+            {suggestions.map((movie) => {
+              const poster = getPosterUrl(movie.posterPath, "medium");
+              return (
+                <Link key={movie.id} href={`/movie/${movie.id}`} className="shrink-0 block">
+                  <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
+                    {poster ? (
+                      <Image
+                        src={poster}
+                        alt={movie.title}
+                        width={130}
+                        height={195}
+                        className="w-full h-full object-cover hover:opacity-80 transition-opacity"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#111]" />
+                    )}
+                  </div>
+                  <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{movie.title}</p>
                 </Link>
               );
             })}

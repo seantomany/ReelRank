@@ -43,7 +43,10 @@ function pickAdjacentPair(
   return Math.random() > 0.5 ? [a, b] : [b, a];
 }
 
-const SESSION_LIMIT = 10;
+function getSessionLimit(count: number): number {
+  if (count <= 2) return count - 1;
+  return Math.min(10, Math.max(3, count - 1));
+}
 
 export default function RefineRankingsPage() {
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
@@ -54,6 +57,8 @@ export default function RefineRankingsPage() {
   const [choiceCount, setChoiceCount] = useState(0);
   const [sessionDone, setSessionDone] = useState(false);
   const lastPairRef = useRef<[number, number] | null>(null);
+
+  const sessionLimit = getSessionLimit(rankings.length);
 
   const fetchRankings = useCallback(async () => {
     const res = await api.solo.ranking();
@@ -125,7 +130,7 @@ export default function RefineRankingsPage() {
     setFlashId(null);
     setChoosing(false);
 
-    if (nextCount >= SESSION_LIMIT) {
+    if (nextCount >= sessionLimit) {
       setSessionDone(true);
       return;
     }
@@ -157,7 +162,7 @@ export default function RefineRankingsPage() {
           animate={{ scale: 1, opacity: 1 }}
           className="text-center"
         >
-          <p className="text-3xl font-semibold text-[#e8e8e8]">{SESSION_LIMIT}/{SESSION_LIMIT}</p>
+          <p className="text-3xl font-semibold text-[#e8e8e8]">{sessionLimit}/{sessionLimit}</p>
           <p className="text-sm text-[#888] mt-2">Session complete — rankings refined</p>
           <div className="flex gap-3 mt-6 justify-center">
             <button
@@ -217,11 +222,11 @@ export default function RefineRankingsPage() {
             <motion.div
               className="h-full bg-[#ff2d55] rounded-full"
               initial={{ width: 0 }}
-              animate={{ width: `${(choiceCount / SESSION_LIMIT) * 100}%` }}
+              animate={{ width: `${(choiceCount / sessionLimit) * 100}%` }}
               transition={{ duration: 0.3 }}
             />
           </div>
-          <span className="text-xs text-[#888] tabular-nums shrink-0">{choiceCount}/{SESSION_LIMIT}</span>
+          <span className="text-xs text-[#888] tabular-nums shrink-0">{choiceCount}/{sessionLimit}</span>
         </div>
         {topRanked && (
           <p className="text-xs text-[#888] mt-2 text-center">

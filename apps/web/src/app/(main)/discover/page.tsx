@@ -9,12 +9,17 @@ import {
   useTransform,
 } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { X, Check } from "lucide-react";
+import { X, Check, Eye } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { RankFlowModal } from "@/components/rank-flow-modal";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type { Movie } from "@reelrank/shared";
 import { getPosterUrl } from "@reelrank/shared";
+
+const VENUES = ["Theater", "Home", "Friend's", "Outdoor", "Other"] as const;
+const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 interface Genre {
   id: number;
@@ -142,6 +147,56 @@ export default function DiscoverPage() {
 
   const [exitDir, setExitDir] = useState<"left" | "right">("right");
 
+  // Watched / log flow state
+  const [logMovie, setLogMovie] = useState<Movie | null>(null);
+  const [showLogSheet, setShowLogSheet] = useState(false);
+  const [showRankFlow, setShowRankFlow] = useState(false);
+  const [logRating, setLogRating] = useState(7);
+  const [logVenue, setLogVenue] = useState<(typeof VENUES)[number]>("Home");
+  const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [logNotes, setLogNotes] = useState("");
+  const [logSubmitting, setLogSubmitting] = useState(false);
+
+  const handleWatched = useCallback(() => {
+    if (swiping || deck.length === 0 || showLogSheet || showRankFlow) return;
+    setLogMovie(deck[0]);
+    setLogRating(7);
+    setLogVenue("Home");
+    setLogDate(new Date().toISOString().slice(0, 10));
+    setLogNotes("");
+    setShowLogSheet(true);
+  }, [swiping, deck, showLogSheet, showRankFlow]);
+
+  const handleLogSubmit = useCallback(async () => {
+    if (!logMovie || logSubmitting) return;
+    setLogSubmitting(true);
+    const res = await api.solo.logWatched({
+      movieId: logMovie.id,
+      rating: logRating,
+      watchedAt: logDate,
+      venue: logVenue,
+      notes: logNotes.trim() || undefined,
+    });
+    setLogSubmitting(false);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success(`Logged ${logMovie.title} — ${logRating}/10`);
+    setShowLogSheet(false);
+    setShowRankFlow(true);
+  }, [logMovie, logSubmitting, logRating, logDate, logVenue, logNotes]);
+
+  const dismissLogMovie = useCallback(() => {
+    if (logMovie) {
+      swipedIdsRef.current.add(logMovie.id);
+      setDeck((prev) => prev.filter((m) => m.id !== logMovie.id));
+    }
+    setLogMovie(null);
+    setShowLogSheet(false);
+    setShowRankFlow(false);
+  }, [logMovie]);
+
   const handleSwipe = useCallback(
     async (direction: "left" | "right") => {
       if (swiping || deck.length === 0) return;
@@ -165,12 +220,14 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (showLogSheet || showRankFlow) return;
       if (e.key === "ArrowLeft") handleSwipe("left");
       else if (e.key === "ArrowRight") handleSwipe("right");
+      else if (e.key === "ArrowDown") { e.preventDefault(); handleWatched(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSwipe]);
+  }, [handleSwipe, handleWatched, showLogSheet, showRankFlow]);
 
   const handleGenreChange = (genreId: number) => {
     if (genreId === activeGenre) return;
@@ -258,17 +315,24 @@ export default function DiscoverPage() {
 
       {/* Controls */}
       {!loading && !isEmpty && (
-        <div className="mt-6 flex items-center gap-8">
+        <div className="mt-6 flex items-center gap-6">
           <button
             onClick={() => handleSwipe("left")}
-            disabled={swiping}
+            disabled={swiping || showLogSheet || showRankFlow}
             className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#888] transition-colors hover:text-red-400 disabled:opacity-40"
           >
             <X className="h-5 w-5" />
           </button>
           <button
+            onClick={handleWatched}
+            disabled={swiping || showLogSheet || showRankFlow}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#888] transition-colors hover:text-[#30d5c8] disabled:opacity-40"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => handleSwipe("right")}
-            disabled={swiping}
+            disabled={swiping || showLogSheet || showRankFlow}
             className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#888] transition-colors hover:text-[#ff2d55] disabled:opacity-40"
           >
             <Check className="h-5 w-5" />
@@ -279,8 +343,130 @@ export default function DiscoverPage() {
       {/* Keyboard hint — desktop only */}
       {!loading && !isEmpty && (
         <p className="mt-3 hidden text-xs text-[#888] md:block">
-          ← Pass · Want →
+          ← Pass · ↓ Watched · Want →
         </p>
+      )}
+
+      {/* Log watched sheet */}
+      <AnimatePresence>
+        {showLogSheet && logMovie && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/80 px-4"
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 60, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="w-full max-w-sm rounded-t-2xl md:rounded-2xl bg-[#0a0a0a] border border-[rgba(255,255,255,0.06)] p-5 pb-8 md:pb-5 space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-[#e8e8e8] truncate pr-4">{logMovie.title}</p>
+                <button
+                  onClick={() => { setShowLogSheet(false); setLogMovie(null); }}
+                  className="text-xs text-[#888] hover:text-[#aaa] transition-colors shrink-0"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {/* Rating */}
+              <div>
+                <motion.p
+                  key={logRating}
+                  initial={{ scale: 1.15, opacity: 0.7 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.15 }}
+                  className="text-4xl font-semibold text-[#ff2d55] tabular-nums text-center"
+                >
+                  {logRating}
+                </motion.p>
+                <div className="flex justify-between mt-3 px-1">
+                  {RATINGS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setLogRating(n)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-full text-xs transition-all cursor-pointer ${
+                        n === logRating
+                          ? "bg-[#ff2d55] text-white font-semibold"
+                          : n <= logRating
+                            ? "text-[#ff2d55]"
+                            : "text-[#888]"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Venue */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#888]">Where</label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {VENUES.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setLogVenue(v)}
+                      className={`rounded-full text-xs px-2.5 py-1 transition-colors cursor-pointer ${
+                        logVenue === v
+                          ? "bg-[#111] text-[#e8e8e8]"
+                          : "text-[#888] hover:text-[#aaa]"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#888]">When</label>
+                <input
+                  type="date"
+                  value={logDate}
+                  onChange={(e) => setLogDate(e.target.value)}
+                  className="mt-1.5 block w-full bg-[#111] rounded-md text-sm text-[#e8e8e8] px-3 py-2 border-0 outline-none"
+                  style={{ colorScheme: "dark" }}
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#888]">Notes</label>
+                <textarea
+                  value={logNotes}
+                  onChange={(e) => setLogNotes(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  placeholder="Optional"
+                  className="mt-1.5 block w-full bg-[#111] rounded-md text-sm text-[#e8e8e8] px-3 py-2 border-0 outline-none resize-none placeholder:text-[#555]"
+                />
+              </div>
+
+              <Button onClick={handleLogSubmit} disabled={logSubmitting} className="w-full">
+                {logSubmitting ? "Saving…" : "Save & Rank"}
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rank flow after logging */}
+      {showRankFlow && logMovie && (
+        <RankFlowModal
+          movie={logMovie}
+          open
+          rating={logRating}
+          onClose={dismissLogMovie}
+          onSkip={dismissLogMovie}
+        />
       )}
 
     </div>

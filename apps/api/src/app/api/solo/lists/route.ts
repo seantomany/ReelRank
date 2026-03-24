@@ -24,20 +24,32 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }) => {
     .orderBy('createdAt', 'desc')
     .get();
 
+  let watchedIds = new Set<number>();
+  if (listType === 'want') {
+    const watchedSnap = await getDb()
+      .collection(COLLECTIONS.watchedMovies)
+      .where('userId', '==', user.id)
+      .select('movieId')
+      .get();
+    watchedIds = new Set(watchedSnap.docs.map((d) => d.data().movieId as number));
+  }
+
   const warnings: string[] = [];
   const movies = await Promise.all(
-    snapshot.docs.map(async (doc) => {
-      const data = doc.data();
-      const { movie, hydrated } = await safeGetMovieById(data.movieId);
-      if (!hydrated) {
-        warnings.push(`Movie ${data.movieId} could not be loaded`);
-      }
-      return {
-        ...data,
-        movie,
-        createdAt: data.createdAt?.toDate?.() ?? data.createdAt,
-      };
-    })
+    snapshot.docs
+      .filter((doc) => listType !== 'want' || !watchedIds.has(doc.data().movieId))
+      .map(async (doc) => {
+        const data = doc.data();
+        const { movie, hydrated } = await safeGetMovieById(data.movieId);
+        if (!hydrated) {
+          warnings.push(`Movie ${data.movieId} could not be loaded`);
+        }
+        return {
+          ...data,
+          movie,
+          createdAt: data.createdAt?.toDate?.() ?? data.createdAt,
+        };
+      })
   );
 
   return NextResponse.json({

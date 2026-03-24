@@ -97,6 +97,43 @@ export default function ProfilePage() {
     setSavingUsername(false);
   };
 
+  const [watchlistSort, setWatchlistSort] = useState<"recent" | "alpha" | "genre">("recent");
+  const [watchedSort, setWatchedSort] = useState<"recent" | "rating" | "alpha" | "genre">("recent");
+
+  const GENRE_MAP: Record<number, string> = {};
+  [...watchlist, ...watched].forEach((item) => {
+    const movie = "movie" in item ? item.movie : undefined;
+    if (movie && "genreIds" in movie) {
+      for (const gid of (movie as Movie).genreIds) {
+        if (!GENRE_MAP[gid]) {
+          const match = insights?.genreBreakdown.find((g) => g.genreId === gid);
+          if (match) GENRE_MAP[gid] = match.genreName;
+        }
+      }
+    }
+  });
+
+  const sortedWatchlist = [...watchlist].sort((a, b) => {
+    if (watchlistSort === "alpha") return a.movie.title.localeCompare(b.movie.title);
+    if (watchlistSort === "genre") {
+      const ga = a.movie.genreIds[0] ?? 999;
+      const gb = b.movie.genreIds[0] ?? 999;
+      return ga - gb || a.movie.title.localeCompare(b.movie.title);
+    }
+    return 0;
+  });
+
+  const sortedWatched = [...watched].sort((a, b) => {
+    if (watchedSort === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
+    if (watchedSort === "alpha") return (a.movie?.title ?? "").localeCompare(b.movie?.title ?? "");
+    if (watchedSort === "genre") {
+      const ga = a.movie?.genreIds?.[0] ?? 999;
+      const gb = b.movie?.genreIds?.[0] ?? 999;
+      return ga - gb || (a.movie?.title ?? "").localeCompare(b.movie?.title ?? "");
+    }
+    return 0;
+  });
+
   const rankCount = rankings.length;
   const watchlistCount = watchlist.length;
   const watchedCount = watched.length;
@@ -364,35 +401,43 @@ export default function ProfilePage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-1">
-                {watchlist.map((item) => {
-                  const poster = getPosterUrl(item.movie.posterPath, "medium");
-                  return (
-                    <Link
-                      key={item.id}
-                      href={`/movie/${item.movie.id}`}
-                      className="relative block group"
-                    >
-                      {poster ? (
-                        <Image
-                          src={poster}
-                          alt={item.movie.title}
-                          width={200}
-                          height={300}
-                          className="aspect-[2/3] w-full rounded-sm object-cover group-hover:opacity-80 transition-opacity"
-                        />
-                      ) : (
-                        <div className="aspect-[2/3] rounded-sm bg-[#111]" />
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 rounded-b-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <p className="text-[11px] text-white leading-tight truncate">
-                          {item.movie.title}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-[#888] uppercase tracking-wider">Sort</span>
+                  <SortPill active={watchlistSort === "recent"} onClick={() => setWatchlistSort("recent")}>Recent</SortPill>
+                  <SortPill active={watchlistSort === "alpha"} onClick={() => setWatchlistSort("alpha")}>A–Z</SortPill>
+                  <SortPill active={watchlistSort === "genre"} onClick={() => setWatchlistSort("genre")}>Genre</SortPill>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-1">
+                  {sortedWatchlist.map((item) => {
+                    const poster = getPosterUrl(item.movie.posterPath, "medium");
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/movie/${item.movie.id}`}
+                        className="relative block group"
+                      >
+                        {poster ? (
+                          <Image
+                            src={poster}
+                            alt={item.movie.title}
+                            width={200}
+                            height={300}
+                            className="aspect-[2/3] w-full rounded-sm object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                        ) : (
+                          <div className="aspect-[2/3] rounded-sm bg-[#111]" />
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 rounded-b-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <p className="text-[11px] text-white leading-tight truncate">
+                            {item.movie.title}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -413,45 +458,67 @@ export default function ProfilePage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-1">
-                {watched.map((item) => {
-                  const movie = item.movie;
-                  const poster = movie ? getPosterUrl(movie.posterPath, "medium") : null;
-                  return (
-                    <Link
-                      key={item.id}
-                      href={`/movie/${item.movieId}`}
-                      className="relative block group"
-                    >
-                      {poster ? (
-                        <Image
-                          src={poster}
-                          alt={movie?.title ?? "Movie"}
-                          width={200}
-                          height={300}
-                          className="aspect-[2/3] w-full rounded-sm object-cover group-hover:opacity-80 transition-opacity"
-                        />
-                      ) : (
-                        <div className="aspect-[2/3] rounded-sm bg-[#111]" />
-                      )}
-                      {item.rating != null && (
-                        <span className="absolute top-1 right-1 bg-black/70 text-[11px] text-[#ff2d55] font-medium px-1.5 py-0.5 rounded-sm tabular-nums">
-                          {item.rating}
-                        </span>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 rounded-b-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <p className="text-[11px] text-white leading-tight truncate">
-                          {movie?.title}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-[#888] uppercase tracking-wider">Sort</span>
+                  <SortPill active={watchedSort === "recent"} onClick={() => setWatchedSort("recent")}>Recent</SortPill>
+                  <SortPill active={watchedSort === "rating"} onClick={() => setWatchedSort("rating")}>Rating</SortPill>
+                  <SortPill active={watchedSort === "alpha"} onClick={() => setWatchedSort("alpha")}>A–Z</SortPill>
+                  <SortPill active={watchedSort === "genre"} onClick={() => setWatchedSort("genre")}>Genre</SortPill>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-1">
+                  {sortedWatched.map((item) => {
+                    const movie = item.movie;
+                    const poster = movie ? getPosterUrl(movie.posterPath, "medium") : null;
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/movie/${item.movieId}`}
+                        className="relative block group"
+                      >
+                        {poster ? (
+                          <Image
+                            src={poster}
+                            alt={movie?.title ?? "Movie"}
+                            width={200}
+                            height={300}
+                            className="aspect-[2/3] w-full rounded-sm object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                        ) : (
+                          <div className="aspect-[2/3] rounded-sm bg-[#111]" />
+                        )}
+                        {item.rating != null && (
+                          <span className="absolute top-1 right-1 bg-black/70 text-[11px] text-[#ff2d55] font-medium px-1.5 py-0.5 rounded-sm tabular-nums">
+                            {item.rating}
+                          </span>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 rounded-b-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <p className="text-[11px] text-white leading-tight truncate">
+                            {movie?.title}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+function SortPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
+        active ? "bg-[#111] text-[#e8e8e8] font-medium" : "text-[#888] hover:text-[#aaa]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

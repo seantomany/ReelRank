@@ -192,6 +192,8 @@ export const api = {
       apiFetch<number[]>("/api/solo/swiped-ids"),
     insights: () =>
       apiFetch<import("@reelrank/shared").SoloInsights>("/api/solo/insights"),
+    suggestions: () =>
+      cachedGet<import("@reelrank/shared").Movie[]>("/api/solo/suggestions", 600_000),
   },
   rooms: {
     create: (name?: string, algorithmVersion?: string) =>

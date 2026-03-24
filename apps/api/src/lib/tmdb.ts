@@ -113,6 +113,19 @@ export async function discoverMovies(
   };
 }
 
+export async function getRecommendations(
+  movieId: number,
+  page: number = 1
+): Promise<{ movies: Movie[]; totalPages: number }> {
+  const data = await tmdbFetch<TmdbPagedResponse>(`/movie/${movieId}/recommendations`, {
+    page: String(page),
+  });
+  return {
+    movies: data.results.map(mapTmdbMovie),
+    totalPages: data.total_pages,
+  };
+}
+
 export async function getMovieById(id: number): Promise<Movie> {
   const m = await tmdbFetch<TmdbMovieResult & { genres?: TmdbGenre[] }>(
     `/movie/${id}`
