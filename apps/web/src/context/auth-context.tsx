@@ -55,7 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth).catch((err) => {
+      const code = (err as { code?: string })?.code;
+      if (code && code !== "auth/popup-closed-by-user") {
+        console.error("[ReelRank] Redirect sign-in failed:", err);
+      }
+    });
 
     return unsubscribe;
   }, []);

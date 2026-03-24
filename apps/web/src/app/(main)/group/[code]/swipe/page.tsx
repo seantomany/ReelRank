@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -11,6 +11,7 @@ import {
 } from "framer-motion";
 import { X, Check, Star } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 import { subscribeToRoom } from "@/lib/ably";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +26,7 @@ export default function GroupSwipePage(props: {
 }) {
   const { code } = React.use(props.params as Promise<{ code: string }>);
   const router = useRouter();
+  const { user } = useAuth();
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,6 +36,10 @@ export default function GroupSwipePage(props: {
   const [superlikeUsed, setSuperlikeUsed] = useState(false);
   const [doneMembers, setDoneMembers] = useState<Set<string>>(new Set());
   const [totalMembers, setTotalMembers] = useState(0);
+  const [isHost, setIsHost] = useState(false);
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [memberProgress, setMemberProgress] = useState<Record<string, number>>({});
+  const safetyTriggered = useRef(false);
 
   const total = movies.length;
   const progress = total > 0 ? (currentIndex / total) * 100 : 0;
@@ -52,16 +58,34 @@ export default function GroupSwipePage(props: {
         setMovies(list);
         const members = res.data.members ?? [];
         setTotalMembers(members.length);
+        setIsHost(res.data.hostId === user?.uid);
+        const names: Record<string, string> = {};
+        for (const m of members) {
+          names[m.userId] = m.user?.displayName || m.user?.username || "Member";
+        }
+        setMemberNames(names);
       } else if (res.error) {
         toast.error(res.error);
       }
       setLoading(false);
     });
-  }, [code, router]);
+  }, [code, router, user?.uid]);
 
   useEffect(() => {
     const unsubscribe = subscribeToRoom(code, {
-      [ABLY_EVENTS.SWIPE_PROGRESS]: () => {},
+      [ABLY_EVENTS.SWIPE_PROGRESS]: (data: unknown) => {
+        const payload = data as {
+          userId?: string;
+          userSwipeCount?: number;
+          totalMovies?: number;
+        };
+        if (payload.userId && typeof payload.userSwipeCount === "number") {
+          setMemberProgress((prev) => ({
+            ...prev,
+            [payload.userId!]: payload.userSwipeCount!,
+          }));
+        }
+      },
       [ABLY_EVENTS.MEMBER_DONE]: (data: unknown) => {
         const payload = data as { userId?: string };
         if (payload.userId) {
@@ -150,17 +174,18 @@ export default function GroupSwipePage(props: {
       </p>
 
       {allDone ? (
-        <div className="flex flex-col items-center py-20 gap-4">
-          <p className="flex items-center gap-2 text-sm text-[#888]">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff2d55] animate-pulse" />
-            Waiting for others to finish
-          </p>
-          {totalMembers > 0 && (
-            <p className="text-xs text-[#555] tabular-nums">
-              {doneMembers.size + 1}/{totalMembers} done
-            </p>
-          )}
-        </div>
+        <WaitingForOthers
+          code={code}
+          doneMembers={doneMembers}
+          totalMembers={totalMembers}
+          isHost={isHost}
+          memberNames={memberNames}
+          memberProgress={memberProgress}
+          totalMovies={total}
+          currentUserId={user?.uid}
+          safetyTriggered={safetyTriggered}
+          router={router}
+        />
       ) : (
         <>
           <div className="relative w-[280px] md:w-[320px] aspect-[2/3]">
@@ -220,6 +245,106 @@ export default function GroupSwipePage(props: {
             </p>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+function WaitingForOthers({
+  code,
+  doneMembers,
+  totalMembers,
+  isHost,
+  memberNames,
+  memberProgress,
+  totalMovies,
+  currentUserId,
+  safetyTriggered,
+  router,
+}: {
+  code: string;
+  doneMembers: Set<string>;
+  totalMembers: number;
+  isHost: boolean;
+  memberNames: Record<string, string>;
+  memberProgress: Record<string, number>;
+  totalMovies: number;
+  currentUserId?: string;
+  safetyTriggered: React.MutableRefObject<boolean>;
+  router: ReturnType<typeof import("next/navigation").useRouter>;
+}) {
+  const selfIncluded = currentUserId ? doneMembers.has(currentUserId) : false;
+  const doneCount = selfIncluded
+    ? doneMembers.size
+    : doneMembers.size + 1;
+
+  useEffect(() => {
+    if (doneCount >= totalMembers && totalMembers > 0 && !safetyTriggered.current) {
+      safetyTriggered.current = true;
+      const timer = setTimeout(() => {
+        api.rooms.results(code).then((res) => {
+          if (res.data) {
+            router.push(`/group/${code}/results`);
+          }
+        });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [doneCount, totalMembers, code, router, safetyTriggered]);
+
+  const allMemberIds = Object.keys(memberNames);
+
+  return (
+    <div className="flex flex-col items-center py-12 gap-6 w-full max-w-sm mx-auto">
+      {doneCount >= totalMembers && totalMembers > 0 ? (
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#ff2d55] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[#888]">Computing results...</p>
+        </div>
+      ) : (
+        <>
+          <p className="flex items-center gap-2 text-sm text-[#888]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ff2d55] animate-pulse" />
+            Waiting for others to finish
+          </p>
+          {totalMembers > 0 && (
+            <p className="text-xs text-[#555] tabular-nums">
+              {doneCount}/{totalMembers} done
+            </p>
+          )}
+        </>
+      )}
+
+      {isHost && allMemberIds.length > 0 && (
+        <div className="w-full mt-2 space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-[#888]">
+            Member Progress
+          </p>
+          {allMemberIds.map((uid) => {
+            const isDone = doneMembers.has(uid);
+            const swiped = memberProgress[uid] ?? (isDone ? totalMovies : 0);
+            const pct = totalMovies > 0 ? Math.min((swiped / totalMovies) * 100, 100) : 0;
+            return (
+              <div key={uid} className="flex items-center gap-3">
+                <span className="text-xs text-[#e8e8e8] w-24 truncate">
+                  {memberNames[uid]}
+                </span>
+                <div className="flex-1 h-1.5 bg-[#111] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: isDone ? "#34c759" : "#ff2d55",
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-[#888] tabular-nums w-12 text-right">
+                  {isDone ? "Done" : `${swiped}/${totalMovies}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

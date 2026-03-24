@@ -95,10 +95,16 @@ export default function ResultsPage(props: {
   if (!result || result.rankedMovies.length === 0) {
     return (
       <div className="mx-auto max-w-sm px-4 py-16 text-center">
-        <p className="text-sm text-[#888]">No results available</p>
-        <Button variant="secondary" className="mt-4" onClick={() => fetchResults()}>
-          Retry
-        </Button>
+        <p className="text-sm text-[#888]">No results available yet</p>
+        <p className="text-xs text-[#555] mt-1">Results may still be computing. Try again in a moment.</p>
+        <div className="flex gap-3 justify-center mt-4">
+          <Button variant="secondary" onClick={() => { setLoading(true); fetchResults(); }}>
+            Retry
+          </Button>
+          <Button variant="secondary" onClick={() => router.push("/group")}>
+            Back to groups
+          </Button>
+        </div>
       </div>
     );
   }
@@ -116,7 +122,6 @@ export default function ResultsPage(props: {
     (m) => m.rightSwipes === m.totalVoters && m.totalVoters > 0
   );
   const hasMultiplePicks = groupPicks.length > 1;
-  const isHost = user?.uid === result.rankedMovies[0]?.movie?.id?.toString() ? false : true;
 
   const handleStartBonusRound = async () => {
     const movieIds = groupPicks.map((m) => m.movieId);

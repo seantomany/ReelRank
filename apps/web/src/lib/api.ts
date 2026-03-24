@@ -196,12 +196,12 @@ export const api = {
       cachedGet<import("@reelrank/shared").Movie[]>("/api/solo/suggestions", 600_000),
   },
   rooms: {
-    create: (name?: string, algorithmVersion?: string) =>
+    create: (name?: string, algorithmVersion?: string, maxMoviesPerMember?: number) =>
       apiFetch<{ id: string; code: string; status: string; hostId: string }>(
         "/api/rooms/create",
         {
           method: "POST",
-          body: JSON.stringify({ name, algorithmVersion }),
+          body: JSON.stringify({ name, algorithmVersion, maxMoviesPerMember }),
         }
       ),
     join: (code: string) =>

@@ -60,6 +60,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
       hostId: room.hostId,
       status: room.status,
       algorithmVersion: room.algorithmVersion,
+      ...(room.maxMoviesPerMember ? { maxMoviesPerMember: room.maxMoviesPerMember } : {}),
       createdAt: room.createdAt?.toDate?.()?.toISOString?.() ?? room.createdAt,
       updatedAt: room.updatedAt?.toDate?.()?.toISOString?.() ?? room.updatedAt,
       members,

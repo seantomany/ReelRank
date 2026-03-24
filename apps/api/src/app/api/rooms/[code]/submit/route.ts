@@ -29,6 +29,17 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     throw new ApiError(400, `Room already has maximum movies (${ROOM_MAX_MOVIES})`, requestId);
   }
 
+  if (room.maxMoviesPerMember) {
+    const userMoviesSnap = await roomRef
+      .collection('movies')
+      .where('submittedByUserId', '==', user.id)
+      .count()
+      .get();
+    if (userMoviesSnap.data().count >= room.maxMoviesPerMember) {
+      throw new ApiError(400, `You've reached your limit of ${room.maxMoviesPerMember} movies`, requestId);
+    }
+  }
+
   const movieDocId = String(parsed.data.movieId);
   const existingMovie = await roomRef.collection('movies').doc(movieDocId).get();
   if (existingMovie.exists) {

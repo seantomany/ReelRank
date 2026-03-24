@@ -59,6 +59,7 @@ export interface Room {
   hostId: string;
   status: RoomStatus;
   algorithmVersion: AlgorithmType;
+  maxMoviesPerMember?: number;
   memberUserIds: string[];
   createdAt: Date;
   updatedAt: Date;

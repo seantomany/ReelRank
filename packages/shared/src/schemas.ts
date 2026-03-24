@@ -25,6 +25,7 @@ export const AlgorithmTypeSchema = z.enum([
 export const CreateRoomInputSchema = z.object({
   name: z.string().max(50).optional(),
   algorithmVersion: AlgorithmTypeSchema.optional().default('simple_majority_v1'),
+  maxMoviesPerMember: z.number().int().min(1).max(20).optional(),
 });
 
 export const RoomCodeSchema = z.string().length(6).regex(/^[A-Z0-9]+$/);

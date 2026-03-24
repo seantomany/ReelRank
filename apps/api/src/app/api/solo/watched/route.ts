@@ -5,6 +5,7 @@ import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { WatchedMovieInputSchema } from '@reelrank/shared';
 import { safeGetMovieById } from '@/lib/tmdb';
 import { ApiError } from '@/lib/errors';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export const POST = withAuthAndRateLimit('general', async (req, { user, requestId }) => {
   const body = await parseJsonBody<unknown>(req, requestId);
@@ -37,6 +38,24 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
     direction: 'right',
     createdAt: now,
   }, { merge: true });
+
+  const rankedListRef = getDb().collection(COLLECTIONS.rankedLists).doc(user.id);
+  const rankedDoc = await rankedListRef.get();
+  if (rankedDoc.exists) {
+    const movieIds: number[] = rankedDoc.data()?.movieIds ?? [];
+    if (!movieIds.includes(movieId)) {
+      await rankedListRef.update({
+        movieIds: FieldValue.arrayUnion(movieId),
+        updatedAt: now,
+      });
+    }
+  } else {
+    await rankedListRef.set({
+      userId: user.id,
+      movieIds: [movieId],
+      updatedAt: now,
+    });
+  }
 
   return NextResponse.json({ data: { id: docId, movieId, rating }, requestId });
 });

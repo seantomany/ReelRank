@@ -63,15 +63,16 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     }),
   ]);
 
-  const [membersSnap, moviesCount] = await Promise.all([
+  const [membersSnap, moviesCount, updatedRoomSnap] = await Promise.all([
     roomRef.collection('members').get(),
     roomRef.collection('movies').count().get(),
+    roomRef.get(),
   ]);
 
   const totalMovies = moviesCount.data().count;
   const totalMembers = membersSnap.size;
   const totalExpected = totalMembers * totalMovies;
-  const currentCount = (room.swipeCount ?? 0) + 1;
+  const currentCount = updatedRoomSnap.data()?.swipeCount ?? 0;
   const progress = totalExpected > 0 ? currentCount / totalExpected : 0;
 
   const userSwipeCount = await roomRef
@@ -96,6 +97,9 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     progress: Math.min(progress, 1),
     swipeCount: currentCount,
     totalExpected,
+    userId: user.id,
+    userSwipeCount: userSwipeCount.data().count,
+    totalMovies,
   });
 
   const allDone = userDone && currentCount >= totalExpected;

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ABLY_EVENTS, getPosterUrl } from "@reelrank/shared";
 import type { Movie, Room } from "@reelrank/shared";
+import { ChevronDown, ChevronUp, Users } from "lucide-react";
 
 export default function SubmitPage(props: {
   params: Promise<{ code: string }>;
@@ -29,16 +30,36 @@ export default function SubmitPage(props: {
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [movieSubmitters, setMovieSubmitters] = useState<Record<number, string>>({});
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [maxPerMember, setMaxPerMember] = useState<number | null>(null);
 
   useEffect(() => {
     api.rooms.get(code).then((res) => {
       if (res.data) {
         setRoom(res.data);
-        const movies = (res.data.movies ?? [])
-          .map((rm) => rm.movie)
-          .filter(Boolean) as Movie[];
+        const roomMovies = res.data.movies ?? [];
+        const movies = roomMovies.map((rm) => rm.movie).filter(Boolean) as Movie[];
         setPool(movies);
         setPoolIds(new Set(movies.map((m) => m.id)));
+
+        const subs: Record<number, string> = {};
+        for (const rm of roomMovies) {
+          if (rm.submittedByUserId && rm.movie) {
+            subs[rm.movie.id] = rm.submittedByUserId;
+          }
+        }
+        setMovieSubmitters(subs);
+
+        const names: Record<string, string> = {};
+        for (const m of res.data.members ?? []) {
+          names[m.userId] = m.user?.displayName || m.user?.username || "Member";
+        }
+        setMemberNames(names);
+        if (res.data.maxMoviesPerMember) {
+          setMaxPerMember(res.data.maxMoviesPerMember);
+        }
 
         if (res.data.status === "swiping") {
           router.push(`/group/${code}/swipe`);
@@ -61,6 +82,10 @@ export default function SubmitPage(props: {
         const payload = data as { movieId: number; submittedBy?: string };
         const movieId = payload.movieId;
         if (!movieId) return;
+
+        if (payload.submittedBy) {
+          setMovieSubmitters((prev) => ({ ...prev, [movieId]: payload.submittedBy! }));
+        }
 
         setPoolIds((prev) => {
           if (prev.has(movieId)) return prev;
@@ -106,12 +131,15 @@ export default function SubmitPage(props: {
   }
 
   async function handleAdd(movie: Movie) {
-    if (poolIds.has(movie.id)) return;
+    if (poolIds.has(movie.id) || atLimit) return;
     setSubmitting(movie.id);
     const res = await api.rooms.submit(code, movie.id);
     if (res.data) {
       setPool((prev) => [...prev, movie]);
       setPoolIds((prev) => new Set(prev).add(movie.id));
+      if (user?.uid) {
+        setMovieSubmitters((prev) => ({ ...prev, [movie.id]: user.uid }));
+      }
     } else if (res.error) {
       toast.error(res.error);
     }
@@ -144,6 +172,10 @@ export default function SubmitPage(props: {
   }
 
   const isHost = room?.hostId === user?.uid;
+  const mySubmissionCount = user?.uid
+    ? Object.values(movieSubmitters).filter((uid) => uid === user.uid).length
+    : 0;
+  const atLimit = maxPerMember !== null && mySubmissionCount >= maxPerMember;
 
   if (loading) {
     return (
@@ -158,10 +190,16 @@ export default function SubmitPage(props: {
       <input
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Add movies"
+        placeholder={atLimit ? "Submission limit reached" : "Add movies"}
         autoFocus
-        className="w-full bg-transparent border-0 border-b border-[rgba(255,255,255,0.06)] pb-3 text-lg text-[#e8e8e8] placeholder:text-[#555] outline-none"
+        disabled={atLimit}
+        className="w-full bg-transparent border-0 border-b border-[rgba(255,255,255,0.06)] pb-3 text-lg text-[#e8e8e8] placeholder:text-[#555] outline-none disabled:opacity-40"
       />
+      {maxPerMember !== null && (
+        <p className="mt-1 text-[10px] text-[#888] tabular-nums">
+          {mySubmissionCount}/{maxPerMember} movies added
+        </p>
+      )}
 
       {(searching || results.length > 0) && (
         <div className="mt-2">
@@ -186,10 +224,10 @@ export default function SubmitPage(props: {
                 </span>
                 <button
                   onClick={() => handleAdd(movie)}
-                  disabled={added || submitting === movie.id}
+                  disabled={added || submitting === movie.id || atLimit}
                   className="shrink-0 px-2 py-2 text-sm text-[#888] transition-colors hover:text-[#e8e8e8] disabled:opacity-40"
                 >
-                  {added ? "Added" : submitting === movie.id ? "…" : "Add"}
+                  {added ? "Added" : atLimit ? "Limit" : submitting === movie.id ? "…" : "Add"}
                 </button>
               </div>
             );
@@ -236,6 +274,30 @@ export default function SubmitPage(props: {
         )}
       </div>
 
+      {isHost && Object.keys(memberNames).length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={() => setShowDashboard((v) => !v)}
+            className="flex items-center gap-2 text-xs text-[#888] hover:text-[#e8e8e8] transition-colors"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Member Submissions</span>
+            {showDashboard ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
+          </button>
+          {showDashboard && (
+            <HostSubmitDashboard
+              memberNames={memberNames}
+              movieSubmitters={movieSubmitters}
+              pool={pool}
+            />
+          )}
+        </div>
+      )}
+
       <div className="mt-8">
         {isHost ? (
           pool.length >= 2 ? (
@@ -254,6 +316,72 @@ export default function SubmitPage(props: {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function HostSubmitDashboard({
+  memberNames,
+  movieSubmitters,
+  pool,
+}: {
+  memberNames: Record<string, string>;
+  movieSubmitters: Record<number, string>;
+  pool: Movie[];
+}) {
+  const submissionsByMember: Record<string, Movie[]> = {};
+  for (const uid of Object.keys(memberNames)) {
+    submissionsByMember[uid] = [];
+  }
+  for (const movie of pool) {
+    const uid = movieSubmitters[movie.id];
+    if (uid) {
+      if (!submissionsByMember[uid]) submissionsByMember[uid] = [];
+      submissionsByMember[uid].push(movie);
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {Object.entries(memberNames).map(([uid, name]) => {
+        const movies = submissionsByMember[uid] ?? [];
+        return (
+          <div key={uid} className="bg-[#0a0a0a] border border-[rgba(255,255,255,0.06)] rounded-lg p-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-[#e8e8e8]">{name}</span>
+              <span className="text-[10px] text-[#888] tabular-nums">
+                {movies.length} {movies.length === 1 ? "movie" : "movies"}
+              </span>
+            </div>
+            {movies.length > 0 ? (
+              <div className="flex gap-1 flex-wrap">
+                {movies.map((m) => {
+                  const poster = getPosterUrl(m.posterPath, "small");
+                  return (
+                    <div
+                      key={m.id}
+                      className="w-8 h-12 rounded-sm overflow-hidden bg-[#111] shrink-0"
+                      title={m.title}
+                    >
+                      {poster && (
+                        <Image
+                          src={poster}
+                          alt={m.title}
+                          width={32}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[10px] text-[#555]">No submissions yet</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

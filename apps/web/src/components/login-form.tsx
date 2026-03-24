@@ -47,11 +47,18 @@ export function LoginForm() {
     }
   };
 
+  const isMobile = typeof navigator !== "undefined" &&
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const handleSocial = async (provider: "google" | "apple") => {
     setSocialLoading(provider);
     const fn = provider === "google" ? signInWithGoogle : signInWithApple;
     const label = provider === "google" ? "Google" : "Apple";
     try {
+      if (isMobile) {
+        await fn("redirect");
+        return;
+      }
       await fn("popup");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;

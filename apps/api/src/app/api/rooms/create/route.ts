@@ -50,6 +50,7 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
       hostId: user.id,
       status: 'lobby' as const,
       algorithmVersion: parsed.data.algorithmVersion,
+      ...(parsed.data.maxMoviesPerMember ? { maxMoviesPerMember: parsed.data.maxMoviesPerMember } : {}),
       memberUserIds: [user.id],
       swipeCount: 0,
       createdAt: now,
