@@ -167,12 +167,22 @@ export async function POST(req: NextRequest) {
 
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-    const stream = await client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-    });
+    let stream;
+    try {
+      stream = await client.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'AI service unavailable';
+      console.error(`[${requestId}] Anthropic init error:`, msg);
+      return new Response(JSON.stringify({ error: msg, requestId }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
@@ -185,9 +195,10 @@ export async function POST(req: NextRequest) {
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
-        } catch (err) {
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Stream interrupted';
           console.error(`[${requestId}] Stream error:`, err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
           controller.close();
         }
       },
