@@ -314,6 +314,11 @@ export const api = {
         `/api/ai/movie-card/${id}`,
         120_000
       ),
+    movieSearch: (query: string) =>
+      cachedGet<import("@reelrank/shared").Movie>(
+        `/api/ai/movie-search?q=${encodeURIComponent(query)}`,
+        120_000
+      ),
   },
   auth: {
     verify: () =>

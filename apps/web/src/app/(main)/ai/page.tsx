@@ -22,18 +22,18 @@ const STARTERS = [
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
-function MovieCard({ tmdbId, title }: { tmdbId: number; title: string }) {
+function MovieCard({ searchQuery }: { searchQuery: string }) {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    api.ai.movieCard(tmdbId).then((res) => {
+    api.ai.movieSearch(searchQuery).then((res) => {
       if (!cancelled && res.data) setMovie(res.data);
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [tmdbId]);
+  }, [searchQuery]);
 
   if (loading) {
     return (
@@ -49,20 +49,16 @@ function MovieCard({ tmdbId, title }: { tmdbId: number; title: string }) {
 
   if (!movie) {
     return (
-      <Link
-        href={`/movie/${tmdbId}`}
-        className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] transition-colors"
-      >
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[rgba(255,255,255,0.06)]">
         <Sparkles className="w-4 h-4 text-accent shrink-0" />
-        <span className="text-sm text-text">{title}</span>
-        <ExternalLink className="w-3 h-3 text-text-secondary ml-auto shrink-0" />
-      </Link>
+        <span className="text-sm text-text">{searchQuery}</span>
+      </div>
     );
   }
 
   return (
     <Link
-      href={`/movie/${tmdbId}`}
+      href={`/movie/${movie.id}`}
       className="flex gap-3 p-3 rounded-lg bg-[#111] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] transition-colors group"
     >
       {movie.posterPath ? (
@@ -149,7 +145,7 @@ function renderStyledText(text: string, keyPrefix: string): React.ReactNode[] {
 
 function parseContent(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const regex = /\[MOVIE:(\d+):([^\]]+)\]|\[CHOICES:([^\]]+)\]/g;
+  const regex = /\[MOVIE_SEARCH:([^\]]+)\]|\[MOVIE:(\d+):([^\]]+)\]|\[CHOICES:([^\]]+)\]/g;
   let lastIndex = 0;
   let match;
 
@@ -158,10 +154,16 @@ function parseContent(text: string): React.ReactNode[] {
       parts.push(...renderStyledText(text.slice(lastIndex, match.index), `s-${lastIndex}`));
     }
 
-    if (match[1] && match[2]) {
+    if (match[1]) {
       parts.push(
         <div key={`m-${match.index}`} className="my-2">
-          <MovieCard tmdbId={Number(match[1])} title={match[2]} />
+          <MovieCard searchQuery={match[1]} />
+        </div>
+      );
+    } else if (match[2] && match[3]) {
+      parts.push(
+        <div key={`m-${match.index}`} className="my-2">
+          <MovieCard searchQuery={match[3]} />
         </div>
       );
     }
