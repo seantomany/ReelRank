@@ -147,6 +147,8 @@ INSTRUCTIONS:
 - You know popular movie TMDB IDs well. Use them confidently for well-known films.`;
 }
 
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   const requestId = createRequestId();
   try {
