@@ -36,6 +36,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
         photoUrl: userData.photoUrl ?? null,
       } : undefined,
       joinedAt: data.joinedAt?.toDate?.()?.toISOString?.() ?? data.joinedAt,
+      doneAt: data.doneAt?.toDate?.()?.toISOString?.() ?? data.doneAt ?? null,
     };
   });
 

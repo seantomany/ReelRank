@@ -105,6 +105,26 @@ export default function GroupSwipePage(props: {
     return unsubscribe;
   }, [code, router]);
 
+  // Poll room status as fallback for missed Ably events
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const res = await api.rooms.get(code);
+      if (res.data) {
+        if (res.data.status === "results") {
+          router.push(`/group/${code}/results`);
+          return;
+        }
+        const members = res.data.members ?? [];
+        const done = new Set<string>();
+        for (const m of members) {
+          if ((m as any).doneAt) done.add(m.userId);
+        }
+        if (done.size > 0) setDoneMembers(done);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [code, router]);
+
   const handleSwipe = useCallback(
     async (direction: "left" | "right", superlike = false) => {
       if (swiping || currentIndex >= movies.length) return;
@@ -277,20 +297,25 @@ function WaitingForOthers({
   const doneCount = selfIncluded
     ? doneMembers.size
     : doneMembers.size + 1;
+  const [loadingResults, setLoadingResults] = useState(false);
+
+  const tryFetchResults = useCallback(async () => {
+    setLoadingResults(true);
+    const res = await api.rooms.results(code);
+    if (res.data) {
+      router.push(`/group/${code}/results`);
+    } else {
+      setLoadingResults(false);
+    }
+  }, [code, router]);
 
   useEffect(() => {
     if (doneCount >= totalMembers && totalMembers > 0 && !safetyTriggered.current) {
       safetyTriggered.current = true;
-      const timer = setTimeout(() => {
-        api.rooms.results(code).then((res) => {
-          if (res.data) {
-            router.push(`/group/${code}/results`);
-          }
-        });
-      }, 3000);
+      const timer = setTimeout(() => tryFetchResults(), 2000);
       return () => clearTimeout(timer);
     }
-  }, [doneCount, totalMembers, code, router, safetyTriggered]);
+  }, [doneCount, totalMembers, tryFetchResults, safetyTriggered]);
 
   const allMemberIds = Object.keys(memberNames);
 
@@ -300,6 +325,13 @@ function WaitingForOthers({
         <div className="flex flex-col items-center gap-3">
           <div className="w-5 h-5 border-2 border-[#ff2d55] border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-[#888]">Computing results...</p>
+          <button
+            onClick={tryFetchResults}
+            disabled={loadingResults}
+            className="mt-2 text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2 disabled:opacity-50"
+          >
+            {loadingResults ? "Loading..." : "View results"}
+          </button>
         </div>
       ) : (
         <>
@@ -312,10 +344,19 @@ function WaitingForOthers({
               {doneCount}/{totalMembers} done
             </p>
           )}
+          {doneCount >= totalMembers && (
+            <button
+              onClick={tryFetchResults}
+              disabled={loadingResults}
+              className="mt-2 text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2 disabled:opacity-50"
+            >
+              {loadingResults ? "Loading..." : "View results"}
+            </button>
+          )}
         </>
       )}
 
-      {isHost && allMemberIds.length > 0 && (
+      {allMemberIds.length > 0 && (
         <div className="w-full mt-2 space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-[#888]">
             Member Progress
