@@ -57,10 +57,19 @@ export default function GroupSwipePage(props: {
         const members = res.data.members ?? [];
         setTotalMembers(members.length);
         const names: Record<string, string> = {};
+        const done = new Set<string>();
+        const progress: Record<string, number> = {};
         for (const m of members) {
-          names[m.userId] = m.user?.displayName || m.user?.username || "Member";
+          const md = m as unknown as Record<string, unknown>;
+          names[m.userId] = (m.user?.displayName || m.user?.username || "Member") as string;
+          if (md.doneAt) done.add(m.userId);
+          if (typeof md.swipeCount === "number") {
+            progress[m.userId] = md.swipeCount;
+          }
         }
         setMemberNames(names);
+        setDoneMembers(done);
+        setMemberProgress(progress);
       } else if (res.error) {
         toast.error(res.error);
       }
@@ -104,34 +113,41 @@ export default function GroupSwipePage(props: {
 
   // Poll room data as primary mechanism (Ably is unreliable)
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const res = await api.rooms.get(code);
-      if (!res.data) return;
+    const poll = async () => {
+      try {
+        const res = await api.rooms.get(code);
+        if (!res.data) return;
 
-      if (res.data.status === "results") {
-        router.push(`/group/${code}/results`);
-        return;
-      }
-
-      const members = res.data.members ?? [];
-      const done = new Set<string>();
-      const progress: Record<string, number> = {};
-      const names: Record<string, string> = {};
-
-      for (const m of members) {
-        names[m.userId] = m.user?.displayName || m.user?.username || "Member";
-        const memberData = m as any;
-        if (memberData.doneAt) done.add(m.userId);
-        if (typeof memberData.swipeCount === "number") {
-          progress[m.userId] = memberData.swipeCount;
+        if (res.data.status === "results") {
+          router.push(`/group/${code}/results`);
+          return;
         }
-      }
 
-      setDoneMembers(done);
-      setMemberProgress((prev) => ({ ...prev, ...progress }));
-      setMemberNames((prev) => ({ ...prev, ...names }));
-      if (members.length > 0) setTotalMembers(members.length);
-    }, 3000);
+        const members = res.data.members ?? [];
+        const done = new Set<string>();
+        const progress: Record<string, number> = {};
+        const names: Record<string, string> = {};
+
+        for (const m of members) {
+          const md = m as unknown as Record<string, unknown>;
+          names[m.userId] = (m.user?.displayName || m.user?.username || "Member") as string;
+          if (md.doneAt) done.add(m.userId);
+          if (typeof md.swipeCount === "number") {
+            progress[m.userId] = md.swipeCount;
+          }
+        }
+
+        setDoneMembers(done);
+        setMemberProgress(progress);
+        setMemberNames((prev) => ({ ...prev, ...names }));
+        if (members.length > 0) setTotalMembers(members.length);
+      } catch {
+        // polling failure is not critical
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [code, router]);
 

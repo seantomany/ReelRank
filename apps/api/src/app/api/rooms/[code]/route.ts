@@ -11,10 +11,23 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
 
   const roomRef = getDb().collection(COLLECTIONS.rooms).doc(roomId);
 
-  const [membersSnap, moviesSnap] = await Promise.all([
+  const [membersSnap, moviesSnap, swipesSnap] = await Promise.all([
     roomRef.collection('members').get(),
     roomRef.collection('movies').get(),
+    room.status === 'swiping' || room.status === 'results'
+      ? roomRef.collection('swipes').get()
+      : Promise.resolve(null),
   ]);
+
+  const totalMovies = moviesSnap.size;
+
+  const swipeCountsByUser: Record<string, number> = {};
+  if (swipesSnap) {
+    for (const doc of swipesSnap.docs) {
+      const uid = doc.data().userId as string;
+      swipeCountsByUser[uid] = (swipeCountsByUser[uid] ?? 0) + 1;
+    }
+  }
 
   const userRefs = membersSnap.docs
     .map((d) => getDb().collection(COLLECTIONS.users).doc(d.data().userId));
@@ -27,16 +40,20 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
   const members = membersSnap.docs.map((d) => {
     const data = d.data();
     const userData = userMap.get(data.userId);
+    const swiped = swipeCountsByUser[data.userId] ?? 0;
     return {
-      ...data,
+      userId: data.userId,
       user: userData ? {
         id: data.userId,
         username: userData.username ?? null,
         displayName: userData.displayName ?? null,
         photoUrl: userData.photoUrl ?? null,
       } : undefined,
-      joinedAt: data.joinedAt?.toDate?.()?.toISOString?.() ?? data.joinedAt,
-      doneAt: data.doneAt?.toDate?.()?.toISOString?.() ?? data.doneAt ?? null,
+      joinedAt: data.joinedAt?.toDate?.()?.toISOString?.() ?? null,
+      swipeCount: swiped,
+      doneAt: swiped >= totalMovies && totalMovies > 0
+        ? (data.doneAt?.toDate?.()?.toISOString?.() ?? true)
+        : null,
     };
   });
 
