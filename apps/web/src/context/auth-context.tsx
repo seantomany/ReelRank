@@ -12,16 +12,30 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { clearCache } from "@/lib/api";
+
+const googleProvider = new GoogleAuthProvider();
+const appleProvider = new OAuthProvider("apple.com");
+appleProvider.addScope("email");
+appleProvider.addScope("name");
+
+type SignInMethod = "popup" | "redirect";
 
 interface AuthContextValue {
   user: FirebaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (method?: SignInMethod) => Promise<void>;
+  signInWithApple: (method?: SignInMethod) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string>;
 }
@@ -40,6 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearCache();
       }
     });
+
+    getRedirectResult(auth).catch(() => {});
+
     return unsubscribe;
   }, []);
 
@@ -51,6 +68,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     clearCache();
     await createUserWithEmailAndPassword(auth, email, password);
+  }, []);
+
+  const signInWithGoogleFn = useCallback(async (method: SignInMethod = "popup") => {
+    clearCache();
+    if (method === "redirect") {
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
+    await signInWithPopup(auth, googleProvider);
+  }, []);
+
+  const signInWithAppleFn = useCallback(async (method: SignInMethod = "popup") => {
+    clearCache();
+    if (method === "redirect") {
+      await signInWithRedirect(auth, appleProvider);
+      return;
+    }
+    await signInWithPopup(auth, appleProvider);
   }, []);
 
   const signOutFn = useCallback(async () => {
@@ -70,6 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signIn,
         signUp,
+        signInWithGoogle: signInWithGoogleFn,
+        signInWithApple: signInWithAppleFn,
         signOut: signOutFn,
         getIdToken,
       }}

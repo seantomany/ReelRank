@@ -47,3 +47,6 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.env.vercel
+git-commit.sh
+git-push.py

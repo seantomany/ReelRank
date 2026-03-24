@@ -104,9 +104,54 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Your Watchlist (moved above trending) */}
+      {/* Hero */}
+      {hero && heroBackdrop && (
+        <Link href={`/movie/${hero.id}`} className="block relative mt-2">
+          <div className="relative w-full aspect-[16/9] md:aspect-[16/7]">
+            <Image src={heroBackdrop} alt={hero.title} fill priority className="object-cover" />
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(to bottom, transparent 40%, #000 100%)" }}
+            />
+            <div className="absolute bottom-0 left-0 px-4 md:px-6 pb-4">
+              <h2 className="text-2xl md:text-4xl font-semibold text-[#e8e8e8]">{hero.title}</h2>
+              {heroYear && <p className="text-sm text-[#888] mt-1">{heroYear}</p>}
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Trending strip */}
+      <section className="mt-6">
+        <p className="text-xs uppercase tracking-widest text-[#888] pl-4 md:pl-6 mb-2">Trending</p>
+        <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
+          {rest.map((movie) => {
+            const poster = getPosterUrl(movie.posterPath, "medium");
+            return (
+              <Link key={movie.id} href={`/movie/${movie.id}`} className="shrink-0 block">
+                <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
+                  {poster ? (
+                    <Image
+                      src={poster}
+                      alt={movie.title}
+                      width={130}
+                      height={195}
+                      className="w-full h-full object-cover hover:opacity-80 transition-opacity"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#111]" />
+                  )}
+                </div>
+                <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{movie.title}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Your Watchlist */}
       {watchlist.length > 0 && (
-        <section className="mt-2">
+        <section className="mt-6">
           <div className="flex items-baseline justify-between pl-4 md:pl-6 pr-4 md:pr-6 mb-2">
             <p className="text-xs uppercase tracking-widest text-[#888]">Your Watchlist</p>
             <Link href="/profile" className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
@@ -114,10 +159,10 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
-            {watchlist.slice(0, 20).map((item) => {
+            {watchlist.slice(0, 20).map((item, idx) => {
               const poster = getPosterUrl(item.movie.posterPath, "medium");
               return (
-                <Link key={item.id} href={`/movie/${item.movie.id}`} className="shrink-0 block">
+                <Link key={`${item.id}-${idx}`} href={`/movie/${item.movie.id}`} className="shrink-0 block">
                   <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
                     {poster ? (
                       <Image
@@ -173,51 +218,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      {/* Hero */}
-      {hero && heroBackdrop && (
-        <Link href={`/movie/${hero.id}`} className="block relative mt-6">
-          <div className="relative w-full aspect-[16/9] md:aspect-[16/7]">
-            <Image src={heroBackdrop} alt={hero.title} fill priority className="object-cover" />
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(to bottom, transparent 40%, #000 100%)" }}
-            />
-            <div className="absolute bottom-0 left-0 px-4 md:px-6 pb-4">
-              <h2 className="text-2xl md:text-4xl font-semibold text-[#e8e8e8]">{hero.title}</h2>
-              {heroYear && <p className="text-sm text-[#888] mt-1">{heroYear}</p>}
-            </div>
-          </div>
-        </Link>
-      )}
-
-      {/* Trending strip */}
-      <section className="mt-6">
-        <p className="text-xs uppercase tracking-widest text-[#888] pl-4 md:pl-6 mb-2">Trending</p>
-        <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
-          {rest.map((movie) => {
-            const poster = getPosterUrl(movie.posterPath, "medium");
-            return (
-              <Link key={movie.id} href={`/movie/${movie.id}`} className="shrink-0 block">
-                <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
-                  {poster ? (
-                    <Image
-                      src={poster}
-                      alt={movie.title}
-                      width={130}
-                      height={195}
-                      className="w-full h-full object-cover hover:opacity-80 transition-opacity"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-[#111]" />
-                  )}
-                </div>
-                <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{movie.title}</p>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Recently Watched */}
       {recentWatched.length > 0 && (

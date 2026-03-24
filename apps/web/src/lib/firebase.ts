@@ -3,6 +3,7 @@ import {
   getAuth,
   initializeAuth,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -20,6 +21,7 @@ let auth: ReturnType<typeof getAuth>;
 try {
   auth = initializeAuth(app, {
     persistence: browserLocalPersistence,
+    popupRedirectResolver: browserPopupRedirectResolver,
   });
 } catch {
   auth = getAuth(app);

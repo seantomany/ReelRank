@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { LoginForm } from "./login-form";
+import { LandingPage } from "./landing-page";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -14,6 +14,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return <LoginForm />;
+  if (!user) return <LandingPage />;
   return <>{children}</>;
 }
