@@ -66,12 +66,6 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked, rating }
     });
   }, [open]);
 
-  useEffect(() => {
-    if (!open || !rankingsLoaded || step !== "triage" || rating == null) return;
-    const zone = ratingToZone(rating);
-    startCompare(zone);
-  }, [open, rankingsLoaded, rating, step, startCompare]);
-
   const startCompare = useCallback((zone: TriageZone) => {
     if (rankings.length === 0) {
       setInsertIndex(0);
@@ -92,6 +86,12 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked, rating }
     setMid(m);
     setStep("compare");
   }, [rankings]);
+
+  useEffect(() => {
+    if (!open || !rankingsLoaded || step !== "triage" || rating == null) return;
+    const zone = ratingToZone(rating);
+    startCompare(zone);
+  }, [open, rankingsLoaded, rating, step, startCompare]);
 
   const handleTriage = (zone: TriageZone) => {
     startCompare(zone);
