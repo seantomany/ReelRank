@@ -81,13 +81,15 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     .count()
     .get();
 
-  const userDone = userSwipeCount.data().count >= totalMovies;
+  const userSwipedTotal = userSwipeCount.data().count;
+  const userDone = userSwipedTotal >= totalMovies;
+
+  await roomRef.collection('members').doc(user.id).update({
+    swipeCount: userSwipedTotal,
+    ...(userDone ? { doneAt: now } : {}),
+  });
 
   if (userDone) {
-    await roomRef.collection('members').doc(user.id).update({
-      doneAt: now,
-    });
-
     await publishToRoom(room.code, ABLY_EVENTS.MEMBER_DONE, {
       userId: user.id,
     });

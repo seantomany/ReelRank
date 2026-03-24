@@ -110,6 +110,45 @@ export default function SubmitPage(props: {
     return unsubscribe;
   }, [code, router]);
 
+  // Poll room data to pick up movies submitted by other members (Ably backup)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const res = await api.rooms.get(code);
+      if (!res.data) return;
+
+      if (res.data.status === "swiping") {
+        router.push(`/group/${code}/swipe`);
+        return;
+      }
+      if (res.data.status === "results") {
+        router.push(`/group/${code}/results`);
+        return;
+      }
+
+      const roomMovies = res.data.movies ?? [];
+      const freshMovies = roomMovies.map((rm) => rm.movie).filter(Boolean) as Movie[];
+      const freshIds = new Set(freshMovies.map((m) => m.id));
+
+      setPool(freshMovies);
+      setPoolIds(freshIds);
+
+      const subs: Record<number, string> = {};
+      for (const rm of roomMovies) {
+        if (rm.submittedByUserId && rm.movie) {
+          subs[rm.movie.id] = rm.submittedByUserId;
+        }
+      }
+      setMovieSubmitters(subs);
+
+      const names: Record<string, string> = {};
+      for (const m of res.data.members ?? []) {
+        names[m.userId] = m.user?.displayName || m.user?.username || "Member";
+      }
+      setMemberNames(names);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [code, router]);
+
   function handleSearch(value: string) {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -146,19 +185,6 @@ export default function SubmitPage(props: {
     setSubmitting(null);
   }
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const res = await api.rooms.get(code);
-      if (res.data) {
-        if (res.data.status === "swiping") {
-          router.push(`/group/${code}/swipe`);
-        } else if (res.data.status === "results") {
-          router.push(`/group/${code}/results`);
-        }
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [code, router]);
 
   async function handleStartSwiping() {
     setStarting(true);

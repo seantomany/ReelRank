@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -36,10 +36,8 @@ export default function GroupSwipePage(props: {
   const [superlikeUsed, setSuperlikeUsed] = useState(false);
   const [doneMembers, setDoneMembers] = useState<Set<string>>(new Set());
   const [totalMembers, setTotalMembers] = useState(0);
-  const [isHost, setIsHost] = useState(false);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [memberProgress, setMemberProgress] = useState<Record<string, number>>({});
-  const safetyTriggered = useRef(false);
 
   const total = movies.length;
   const progress = total > 0 ? (currentIndex / total) * 100 : 0;
@@ -58,7 +56,6 @@ export default function GroupSwipePage(props: {
         setMovies(list);
         const members = res.data.members ?? [];
         setTotalMembers(members.length);
-        setIsHost(res.data.hostId === user?.uid);
         const names: Record<string, string> = {};
         for (const m of members) {
           names[m.userId] = m.user?.displayName || m.user?.username || "Member";
@@ -105,23 +102,36 @@ export default function GroupSwipePage(props: {
     return unsubscribe;
   }, [code, router]);
 
-  // Poll room status as fallback for missed Ably events
+  // Poll room data as primary mechanism (Ably is unreliable)
   useEffect(() => {
     const interval = setInterval(async () => {
       const res = await api.rooms.get(code);
-      if (res.data) {
-        if (res.data.status === "results") {
-          router.push(`/group/${code}/results`);
-          return;
-        }
-        const members = res.data.members ?? [];
-        const done = new Set<string>();
-        for (const m of members) {
-          if ((m as any).doneAt) done.add(m.userId);
-        }
-        if (done.size > 0) setDoneMembers(done);
+      if (!res.data) return;
+
+      if (res.data.status === "results") {
+        router.push(`/group/${code}/results`);
+        return;
       }
-    }, 4000);
+
+      const members = res.data.members ?? [];
+      const done = new Set<string>();
+      const progress: Record<string, number> = {};
+      const names: Record<string, string> = {};
+
+      for (const m of members) {
+        names[m.userId] = m.user?.displayName || m.user?.username || "Member";
+        const memberData = m as any;
+        if (memberData.doneAt) done.add(m.userId);
+        if (typeof memberData.swipeCount === "number") {
+          progress[m.userId] = memberData.swipeCount;
+        }
+      }
+
+      setDoneMembers(done);
+      setMemberProgress((prev) => ({ ...prev, ...progress }));
+      setMemberNames((prev) => ({ ...prev, ...names }));
+      if (members.length > 0) setTotalMembers(members.length);
+    }, 3000);
     return () => clearInterval(interval);
   }, [code, router]);
 
@@ -198,12 +208,10 @@ export default function GroupSwipePage(props: {
           code={code}
           doneMembers={doneMembers}
           totalMembers={totalMembers}
-          isHost={isHost}
           memberNames={memberNames}
           memberProgress={memberProgress}
           totalMovies={total}
           currentUserId={user?.uid}
-          safetyTriggered={safetyTriggered}
           router={router}
         />
       ) : (
@@ -274,23 +282,19 @@ function WaitingForOthers({
   code,
   doneMembers,
   totalMembers,
-  isHost,
   memberNames,
   memberProgress,
   totalMovies,
   currentUserId,
-  safetyTriggered,
   router,
 }: {
   code: string;
   doneMembers: Set<string>;
   totalMembers: number;
-  isHost: boolean;
   memberNames: Record<string, string>;
   memberProgress: Record<string, number>;
   totalMovies: number;
   currentUserId?: string;
-  safetyTriggered: React.MutableRefObject<boolean>;
   router: ReturnType<typeof import("next/navigation").useRouter>;
 }) {
   const selfIncluded = currentUserId ? doneMembers.has(currentUserId) : false;
@@ -298,39 +302,47 @@ function WaitingForOthers({
     ? doneMembers.size
     : doneMembers.size + 1;
   const [loadingResults, setLoadingResults] = useState(false);
+  const [resultError, setResultError] = useState<string | null>(null);
 
   const tryFetchResults = useCallback(async () => {
     setLoadingResults(true);
+    setResultError(null);
     const res = await api.rooms.results(code);
     if (res.data) {
       router.push(`/group/${code}/results`);
     } else {
       setLoadingResults(false);
+      setResultError(res.error ?? "Results not ready yet");
     }
   }, [code, router]);
 
+  // Auto-retry fetching results every 5s once all members are detected as done
   useEffect(() => {
-    if (doneCount >= totalMembers && totalMembers > 0 && !safetyTriggered.current) {
-      safetyTriggered.current = true;
-      const timer = setTimeout(() => tryFetchResults(), 2000);
-      return () => clearTimeout(timer);
+    if (doneCount >= totalMembers && totalMembers > 0) {
+      tryFetchResults();
+      const interval = setInterval(() => tryFetchResults(), 5000);
+      return () => clearInterval(interval);
     }
-  }, [doneCount, totalMembers, tryFetchResults, safetyTriggered]);
+  }, [doneCount, totalMembers, tryFetchResults]);
 
+  const everyoneDone = doneCount >= totalMembers && totalMembers > 0;
   const allMemberIds = Object.keys(memberNames);
 
   return (
     <div className="flex flex-col items-center py-12 gap-6 w-full max-w-sm mx-auto">
-      {doneCount >= totalMembers && totalMembers > 0 ? (
+      {everyoneDone ? (
         <div className="flex flex-col items-center gap-3">
           <div className="w-5 h-5 border-2 border-[#ff2d55] border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-[#888]">Computing results...</p>
+          {resultError && (
+            <p className="text-[10px] text-[#555]">{resultError}</p>
+          )}
           <button
             onClick={tryFetchResults}
             disabled={loadingResults}
-            className="mt-2 text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2 disabled:opacity-50"
+            className="mt-1 px-4 py-2 rounded-lg bg-[#ff2d55] text-white text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loadingResults ? "Loading..." : "View results"}
+            {loadingResults ? "Loading..." : "View Results"}
           </button>
         </div>
       ) : (
@@ -343,15 +355,6 @@ function WaitingForOthers({
             <p className="text-xs text-[#555] tabular-nums">
               {doneCount}/{totalMembers} done
             </p>
-          )}
-          {doneCount >= totalMembers && (
-            <button
-              onClick={tryFetchResults}
-              disabled={loadingResults}
-              className="mt-2 text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2 disabled:opacity-50"
-            >
-              {loadingResults ? "Loading..." : "View results"}
-            </button>
           )}
         </>
       )}
