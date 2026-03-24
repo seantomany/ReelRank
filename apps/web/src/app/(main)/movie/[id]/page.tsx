@@ -77,7 +77,16 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
     );
   }
 
-  if (!movie) return null;
+  if (!movie) {
+    return (
+      <div className="min-h-screen bg-[#000] flex flex-col items-center justify-center gap-4">
+        <p className="text-text-secondary text-sm">Movie not found</p>
+        <Link href="/ai" className="text-accent text-sm hover:underline">
+          &larr; Back to AI chat
+        </Link>
+      </div>
+    );
+  }
 
   const backdropUrl = getBackdropUrl(movie.backdropPath, "large");
   const posterUrl = getPosterUrl(movie.posterPath, "large");
