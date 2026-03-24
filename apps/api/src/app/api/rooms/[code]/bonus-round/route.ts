@@ -74,7 +74,6 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
   const bonusSnap = await roomRef
     .collection('bonusRounds')
     .where('status', '==', 'active')
-    .orderBy('createdAt', 'desc')
     .limit(1)
     .get();
 
@@ -94,7 +93,8 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
 
   await bonusDoc.ref.update({ votes });
 
-  const memberCount = room.memberUserIds?.length ?? 0;
+  const membersSnap = await roomRef.collection('members').count().get();
+  const memberCount = membersSnap.data().count;
   const voteCount = Object.keys(votes).length;
 
   if (voteCount >= memberCount) {

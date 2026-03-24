@@ -9,7 +9,7 @@ import {
   useMotionValue,
   useTransform,
 } from "framer-motion";
-import { X, Check, Star } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { subscribeToRoom } from "@/lib/ably";
@@ -33,7 +33,6 @@ export default function GroupSwipePage(props: {
   const [swiping, setSwiping] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exitDir, setExitDir] = useState<"left" | "right">("right");
-  const [superlikeUsed, setSuperlikeUsed] = useState(false);
   const [doneMembers, setDoneMembers] = useState<Set<string>>(new Set());
   const [totalMembers, setTotalMembers] = useState(0);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
@@ -152,45 +151,36 @@ export default function GroupSwipePage(props: {
   }, [code, router]);
 
   const handleSwipe = useCallback(
-    async (direction: "left" | "right", superlike = false) => {
+    async (direction: "left" | "right") => {
       if (swiping || currentIndex >= movies.length) return;
-      if (superlike && superlikeUsed) return;
 
       setExitDir(direction);
       setSwiping(true);
 
       const movie = movies[currentIndex];
-      const res = await api.rooms.swipe(code, movie.id, direction, superlike || undefined);
+      const res = await api.rooms.swipe(code, movie.id, direction);
 
       if (res.error) {
         toast.error(res.error);
-      } else {
-        if (superlike) setSuperlikeUsed(true);
-        if (res.data?.allDone) {
-          router.push(`/group/${code}/results`);
-          return;
-        }
+      } else if (res.data?.allDone) {
+        router.push(`/group/${code}/results`);
+        return;
       }
 
       setCurrentIndex((prev) => prev + 1);
       setSwiping(false);
     },
-    [swiping, currentIndex, movies, code, superlikeUsed, router]
+    [swiping, currentIndex, movies, code, router]
   );
-
-  const handleSuperlike = useCallback(() => {
-    handleSwipe("right", true);
-  }, [handleSwipe]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") handleSwipe("left");
       else if (e.key === "ArrowRight") handleSwipe("right");
-      else if (e.key === "ArrowUp") handleSuperlike();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSwipe, handleSuperlike]);
+  }, [handleSwipe]);
 
   if (loading) {
     return (
@@ -259,18 +249,6 @@ export default function GroupSwipePage(props: {
               <X className="h-5 w-5" />
             </button>
             <button
-              onClick={handleSuperlike}
-              disabled={swiping || superlikeUsed}
-              className={`flex h-14 w-14 items-center justify-center rounded-full border transition-all ${
-                superlikeUsed
-                  ? "border-[rgba(255,255,255,0.05)] text-[#333] cursor-not-allowed"
-                  : "border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:scale-105"
-              }`}
-              title={superlikeUsed ? "Superlike already used" : "Superlike (1 per session)"}
-            >
-              <Star className={`h-6 w-6 ${superlikeUsed ? "" : "fill-amber-400"}`} />
-            </button>
-            <button
               onClick={() => handleSwipe("right")}
               disabled={swiping}
               className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)] text-[#888] transition-colors hover:text-[#ff2d55] disabled:opacity-40"
@@ -280,14 +258,8 @@ export default function GroupSwipePage(props: {
           </div>
 
           <p className="mt-3 hidden text-xs text-[#888] md:block">
-            ← Pass · ↑ Superlike · Want →
+            ← Pass · Want →
           </p>
-
-          {!superlikeUsed && (
-            <p className="mt-1 text-[10px] text-amber-400/60">
-              1 superlike remaining — counts 3×
-            </p>
-          )}
         </>
       )}
     </div>

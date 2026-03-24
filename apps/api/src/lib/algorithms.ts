@@ -1,9 +1,5 @@
 import type { Movie, MovieScore, RoomSwipe } from '@reelrank/shared';
-import { ELO_K_FACTOR, ELO_INITIAL_RATING, SUPERLIKE_WEIGHT } from '@reelrank/shared';
-
-function getSwipeWeight(swipe: RoomSwipe): number {
-  return swipe.superlike ? SUPERLIKE_WEIGHT : 1;
-}
+import { ELO_K_FACTOR, ELO_INITIAL_RATING } from '@reelrank/shared';
 
 export function computeSimpleMajority(
   swipes: RoomSwipe[],
@@ -11,19 +7,17 @@ export function computeSimpleMajority(
   totalMembers: number
 ): MovieScore[] {
   const movieMap = new Map(movies.map((m) => [m.id, m]));
-  const scoreMap = new Map<number, { right: number; left: number; superliked: boolean }>();
+  const scoreMap = new Map<number, { right: number; left: number }>();
 
   for (const movie of movies) {
-    scoreMap.set(movie.id, { right: 0, left: 0, superliked: false });
+    scoreMap.set(movie.id, { right: 0, left: 0 });
   }
 
   for (const swipe of swipes) {
     const counts = scoreMap.get(swipe.movieId);
     if (!counts) continue;
-    const weight = getSwipeWeight(swipe);
     if (swipe.direction === 'right') {
-      counts.right += weight;
-      if (swipe.superlike) counts.superliked = true;
+      counts.right++;
     } else {
       counts.left++;
     }
@@ -34,21 +28,20 @@ export function computeSimpleMajority(
     const movie = movieMap.get(movieId);
     if (!movie) continue;
 
-    const baseScore =
-      totalMembers > 0 ? (counts.right - counts.left) / totalMembers : 0;
-    const popularityBonus = Math.min(movie.popularity / 1000, 0.1);
-    const ratingBonus = (movie.voteAverage / 10) * 0.05;
+    const score = totalMembers > 0
+      ? Math.round((counts.right / totalMembers) * 100)
+      : 0;
 
     results.push({
       movieId,
       movie,
-      score: baseScore,
+      score,
       rightSwipes: counts.right,
       leftSwipes: counts.left,
       totalVoters: totalMembers,
-      popularityBonus,
-      ratingBonus,
-      finalScore: baseScore + popularityBonus + ratingBonus,
+      popularityBonus: 0,
+      ratingBonus: 0,
+      finalScore: score,
     });
   }
 
@@ -90,7 +83,6 @@ export function computeEloGroup(
     const leftSwiped = userSwipeList.filter((s) => s.direction === 'left');
 
     for (const winner of rightSwiped) {
-      const weight = getSwipeWeight(winner);
       for (const loser of leftSwiped) {
         const winnerElo = elos.get(winner.movieId) ?? ELO_INITIAL_RATING;
         const loserElo = elos.get(loser.movieId) ?? ELO_INITIAL_RATING;
@@ -100,7 +92,7 @@ export function computeEloGroup(
 
         elos.set(
           winner.movieId,
-          winnerElo + ELO_K_FACTOR * weight * (1 - expectedWinner)
+          winnerElo + ELO_K_FACTOR * (1 - expectedWinner)
         );
         elos.set(
           loser.movieId,
@@ -115,8 +107,6 @@ export function computeEloGroup(
     const movie = movieMap.get(movieId);
     if (!movie) continue;
     const counts = swipeCounts.get(movieId) ?? { right: 0, left: 0 };
-    const popularityBonus = Math.min(movie.popularity / 1000, 0.1);
-    const ratingBonus = (movie.voteAverage / 10) * 0.05;
 
     results.push({
       movieId,
@@ -125,9 +115,9 @@ export function computeEloGroup(
       rightSwipes: counts.right,
       leftSwipes: counts.left,
       totalVoters: totalMembers,
-      popularityBonus,
-      ratingBonus,
-      finalScore: elo + popularityBonus + ratingBonus,
+      popularityBonus: 0,
+      ratingBonus: 0,
+      finalScore: elo,
     });
   }
 
@@ -247,8 +237,6 @@ export function computeRankedChoice(
   return ranked.map((movieId, index) => {
     const movie = movieMap.get(movieId)!;
     const counts = swipeCounts.get(movieId) ?? { right: 0, left: 0 };
-    const popularityBonus = Math.min(movie.popularity / 1000, 0.1);
-    const ratingBonus = (movie.voteAverage / 10) * 0.05;
     const positionScore = (ranked.length - index) / ranked.length;
 
     return {
@@ -258,9 +246,9 @@ export function computeRankedChoice(
       rightSwipes: counts.right,
       leftSwipes: counts.left,
       totalVoters: totalMembers,
-      popularityBonus,
-      ratingBonus,
-      finalScore: positionScore + popularityBonus + ratingBonus,
+      popularityBonus: 0,
+      ratingBonus: 0,
+      finalScore: positionScore,
     };
   });
 }

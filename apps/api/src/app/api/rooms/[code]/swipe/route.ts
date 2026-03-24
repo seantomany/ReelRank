@@ -24,7 +24,7 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     throw new ApiError(400, 'Room is not in swiping phase', requestId);
   }
 
-  const { movieId, direction, superlike } = parsed.data;
+  const { movieId, direction } = parsed.data;
   const swipeDocId = `${user.id}_${movieId}`;
   const roomRef = getDb().collection(COLLECTIONS.rooms).doc(roomId);
   const now = new Date();
@@ -34,27 +34,14 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     throw new ApiError(400, 'Already swiped on this movie', requestId);
   }
 
-  if (superlike) {
-    const existingSuperlike = await roomRef
-      .collection('swipes')
-      .where('userId', '==', user.id)
-      .where('superlike', '==', true)
-      .limit(1)
-      .get();
-
-    if (!existingSuperlike.empty) {
-      throw new ApiError(400, 'You have already used your superlike', requestId);
-    }
-  }
-
   await Promise.all([
     roomRef.collection('swipes').doc(swipeDocId).set({
       id: swipeDocId,
       roomId,
       userId: user.id,
       movieId,
-      direction: superlike ? 'right' : direction,
-      superlike: superlike ?? false,
+      direction,
+      superlike: false,
       createdAt: now,
     }),
     roomRef.update({
@@ -113,8 +100,7 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
   return NextResponse.json({
     data: {
       movieId,
-      direction: superlike ? 'right' : direction,
-      superlike: superlike ?? false,
+      direction,
       progress: Math.min(progress, 1),
       userDone,
       allDone,
