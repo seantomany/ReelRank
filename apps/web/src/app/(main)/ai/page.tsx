@@ -124,6 +124,29 @@ function ChoiceButtons({
   );
 }
 
+function renderStyledText(text: string, keyPrefix: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const boldRegex = /\*\*([^*]+)\*\*/g;
+  let lastIdx = 0;
+  let m;
+
+  while ((m = boldRegex.exec(text)) !== null) {
+    if (m.index > lastIdx) {
+      parts.push(<span key={`${keyPrefix}-t-${lastIdx}`}>{text.slice(lastIdx, m.index)}</span>);
+    }
+    parts.push(
+      <span key={`${keyPrefix}-b-${m.index}`} className="text-accent font-semibold">{m[1]}</span>
+    );
+    lastIdx = m.index + m[0].length;
+  }
+
+  if (lastIdx < text.length) {
+    parts.push(<span key={`${keyPrefix}-t-${lastIdx}`}>{text.slice(lastIdx)}</span>);
+  }
+
+  return parts;
+}
+
 function parseContent(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   const regex = /\[MOVIE:(\d+):([^\]]+)\]|\[CHOICES:([^\]]+)\]/g;
@@ -132,9 +155,7 @@ function parseContent(text: string): React.ReactNode[] {
 
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(
-        <span key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>
-      );
+      parts.push(...renderStyledText(text.slice(lastIndex, match.index), `s-${lastIndex}`));
     }
 
     if (match[1] && match[2]) {
@@ -149,7 +170,7 @@ function parseContent(text: string): React.ReactNode[] {
   }
 
   if (lastIndex < text.length) {
-    parts.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+    parts.push(...renderStyledText(text.slice(lastIndex), `s-${lastIndex}`));
   }
 
   return parts;
@@ -213,14 +234,40 @@ function MessageBubble({
   );
 }
 
+const STORAGE_KEY = "reelrank-ai-chat";
+
+function loadChat(): ChatMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveChat(messages: ChatMessage[]) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
 export default function AIPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadChat);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isStreaming && messages.length > 0) {
+      saveChat(messages);
+    }
+  }, [messages, isStreaming]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -287,6 +334,7 @@ export default function AIPage() {
     setInput("");
     setError(null);
     setIsStreaming(false);
+    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   const handleChoiceSelect = (choice: string) => {
