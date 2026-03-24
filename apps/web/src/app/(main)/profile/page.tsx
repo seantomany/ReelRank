@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-context";
 import { getPosterUrl } from "@reelrank/shared";
 import type {
   SoloRanking,
+  SoloInsights,
   WatchedMovie,
   SoloSwipe,
   Movie,
@@ -20,6 +21,7 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { BarChart3, ChevronRight } from "lucide-react";
 
 interface Stats {
   totalSwipes: number;
@@ -35,6 +37,9 @@ export default function ProfilePage() {
 
   const [tab, setTab] = useState("rankings");
   const [stats, setStats] = useState<Stats | null>(null);
+  const [username, setUsername] = useState("");
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [watchlist, setWatchlist] = useState<(SoloSwipe & { movie: Movie })[]>([]);
   const [watched, setWatched] = useState<(WatchedMovie & { movie?: Movie })[]>([]);
@@ -42,8 +47,12 @@ export default function ProfilePage() {
   const [loadingRankings, setLoadingRankings] = useState(true);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
   const [loadingWatched, setLoadingWatched] = useState(true);
+  const [insights, setInsights] = useState<SoloInsights | null>(null);
 
   useEffect(() => {
+    api.auth.verify().then((res) => {
+      if (res.data?.username) setUsername(res.data.username);
+    });
     api.solo.stats().then((res) => {
       if (res.data) setStats(res.data);
       if (res.error) toast.error(res.error);
@@ -63,35 +72,180 @@ export default function ProfilePage() {
       if (res.data) setWatched(res.data);
       if (res.error) toast.error(res.error);
     }).finally(() => setLoadingWatched(false));
+
+    api.solo.insights().then((res) => {
+      if (res.data) setInsights(res.data);
+    });
   }, []);
 
-  const displayName = user?.email ? user.email.split("@")[0] : "User";
+  const displayName = username || (user?.email ? user.email.split("@")[0] : "User");
   const initial = displayName.charAt(0).toUpperCase();
+
+  const handleSaveUsername = async () => {
+    if (!username.trim() || username.length < 3) {
+      toast.error("Username must be at least 3 characters");
+      return;
+    }
+    setSavingUsername(true);
+    const res = await api.auth.updateProfile({ username: username.trim() });
+    if (res.data) {
+      toast.success("Username updated");
+      setEditingUsername(false);
+    } else if (res.error) {
+      toast.error(res.error);
+    }
+    setSavingUsername(false);
+  };
 
   const rankCount = rankings.length;
   const watchlistCount = watchlist.length;
   const watchedCount = watched.length;
+  const topGenres = insights?.genreBreakdown.slice(0, 3) ?? [];
+  const top5 = rankings.slice(0, 5);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#111]">
-          <span className="text-sm text-[#888]">{initial}</span>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#111] border border-[rgba(255,255,255,0.06)]">
+          <span className="text-lg font-semibold text-[#888]">{initial}</span>
         </div>
-        <div className="min-w-0">
-          <p className="text-lg font-semibold text-[#e8e8e8] truncate">
-            {displayName}
-          </p>
-          {loadingStats ? (
-            <Skeleton className="h-4 w-48 mt-0.5" />
-          ) : stats ? (
-            <p className="text-sm text-[#888]">
-              {stats.pairwiseChoices} ranked · {stats.moviesWatched} watched · {stats.totalSwipes} swiped
-            </p>
-          ) : null}
+        <div className="min-w-0 flex-1">
+          {editingUsername ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                maxLength={20}
+                className="bg-transparent border-b border-[rgba(255,255,255,0.1)] text-lg font-semibold text-[#e8e8e8] outline-none w-40"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
+              />
+              <button onClick={handleSaveUsername} disabled={savingUsername} className="text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors">
+                {savingUsername ? "..." : "Save"}
+              </button>
+              <button onClick={() => setEditingUsername(false)} className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-semibold text-[#e8e8e8] truncate">
+                {displayName}
+              </p>
+              <button onClick={() => setEditingUsername(true)} className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+                {username ? "edit" : "set username"}
+              </button>
+            </div>
+          )}
+          {topGenres.length > 0 && (
+            <div className="flex gap-1.5 mt-1">
+              {topGenres.map((g) => (
+                <span key={g.genreId} className="text-[10px] text-[#888] bg-[#111] rounded-full px-2 py-0.5">
+                  {g.genreName}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Summary stat cards */}
+      <div className="grid grid-cols-4 gap-2 mt-4">
+        {loadingStats ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 rounded-lg" />
+          ))
+        ) : (
+          <>
+            <div className="bg-[#111] rounded-lg p-3 text-center">
+              <p className="text-xl font-semibold text-[#e8e8e8] tabular-nums">{rankCount}</p>
+              <p className="text-[10px] text-[#888] mt-0.5">Ranked</p>
+            </div>
+            <div className="bg-[#111] rounded-lg p-3 text-center">
+              <p className="text-xl font-semibold text-[#e8e8e8] tabular-nums">{watchedCount}</p>
+              <p className="text-[10px] text-[#888] mt-0.5">Watched</p>
+            </div>
+            <div className="bg-[#111] rounded-lg p-3 text-center">
+              <p className="text-xl font-semibold text-[#e8e8e8] tabular-nums">{watchlistCount}</p>
+              <p className="text-[10px] text-[#888] mt-0.5">Watchlist</p>
+            </div>
+            <div className="bg-[#111] rounded-lg p-3 text-center">
+              <p className="text-xl font-semibold text-[#ff2d55] tabular-nums">
+                {insights?.averageRating ? insights.averageRating.toFixed(1) : "—"}
+              </p>
+              <p className="text-[10px] text-[#888] mt-0.5">Avg Rating</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* View Stats link */}
+      <Link
+        href="/stats"
+        className="mt-4 flex items-center justify-between rounded-lg bg-[#111] border border-[rgba(255,255,255,0.06)] px-4 py-3 group hover:border-[rgba(255,255,255,0.12)] transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <BarChart3 className="w-4 h-4 text-[#ff2d55]" />
+          <div>
+            <p className="text-sm text-[#e8e8e8] font-medium">Your Stats</p>
+            <p className="text-[11px] text-[#888]">
+              {insights?.moviePersonality.title
+                ? `${insights.moviePersonality.title} — view full breakdown`
+                : "Genre taste, watch habits, and more"}
+            </p>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-[#888] group-hover:text-[#e8e8e8] transition-colors" />
+      </Link>
+
+      {/* Top 5 showcase */}
+      {top5.length > 0 && (
+        <div className="mt-5">
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-xs uppercase tracking-widest text-[#888]">Top Ranked</p>
+            {rankings.length > 5 && (
+              <button onClick={() => setTab("rankings")} className="text-[10px] text-[#888] hover:text-[#e8e8e8] transition-colors">
+                See all {rankings.length}
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {top5.map((item) => {
+              const poster = getPosterUrl(item.movie.posterPath, "medium");
+              return (
+                <Link
+                  key={item.movieId}
+                  href={`/movie/${item.movieId}`}
+                  className="shrink-0 w-[100px] group"
+                >
+                  <div className="relative aspect-[2/3] rounded-sm overflow-hidden">
+                    {poster ? (
+                      <Image
+                        src={poster}
+                        alt={item.movie.title}
+                        width={100}
+                        height={150}
+                        className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#111]" />
+                    )}
+                    <span className="absolute top-1 left-1 bg-black/70 text-[10px] text-[#ff2d55] font-semibold px-1.5 py-0.5 rounded-sm tabular-nums">
+                      #{item.rank}
+                    </span>
+                    <span className="absolute bottom-1 right-1 bg-black/70 text-[10px] text-[#e8e8e8] font-medium px-1.5 py-0.5 rounded-sm tabular-nums">
+                      {item.beliScore.toFixed(1)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#e8e8e8] mt-1 truncate">{item.movie.title}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mt-5">
@@ -124,11 +278,10 @@ export default function ProfilePage() {
               <div className="py-16 text-center">
                 <p className="text-sm text-[#888]">No rankings yet</p>
                 <p className="text-xs text-[#888] mt-1">
-                  Use{" "}
-                  <Link href="/this-or-that" className="text-[#e8e8e8] underline">
-                    This or That
-                  </Link>{" "}
-                  to start ranking your movies
+                  <Link href="/discover" className="text-[#e8e8e8] underline">
+                    Discover movies
+                  </Link>
+                  {", watch them, and rank to build your list"}
                 </p>
               </div>
             ) : (
@@ -137,7 +290,7 @@ export default function ProfilePage() {
                   const poster = getPosterUrl(item.movie.posterPath, "small");
                   const isTop3 = item.rank <= 3;
                   const rankLabel =
-                    item.rank === 1 ? "🥇" : item.rank === 2 ? "🥈" : item.rank === 3 ? "🥉" : String(item.rank);
+                    item.rank === 1 ? "\u{1F947}" : item.rank === 2 ? "\u{1F948}" : item.rank === 3 ? "\u{1F949}" : String(item.rank);
 
                   return (
                     <Link
@@ -174,12 +327,20 @@ export default function ProfilePage() {
                           )}
                         </p>
                       </div>
-                      <span className="text-xs text-[#888] ml-auto shrink-0 tabular-nums">
-                        {Math.round(item.eloScore)}
+                      <span className="text-sm text-[#ff2d55] ml-auto shrink-0 tabular-nums font-medium">
+                        {item.beliScore.toFixed(1)}
                       </span>
                     </Link>
                   );
                 })}
+                <div className="mt-4 text-center">
+                  <Link
+                    href="/this-or-that"
+                    className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors underline underline-offset-2"
+                  >
+                    Refine your rankings
+                  </Link>
+                </div>
               </div>
             )}
           </TabsContent>

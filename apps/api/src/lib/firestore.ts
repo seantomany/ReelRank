@@ -15,5 +15,6 @@ export const COLLECTIONS = {
   soloSwipes: 'soloSwipes',
   pairwiseChoices: 'pairwiseChoices',
   watchedMovies: 'watchedMovies',
+  rankedLists: 'rankedLists',
   rooms: 'rooms',
 } as const;

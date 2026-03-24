@@ -5,7 +5,45 @@ import { safeGetMovieById } from '@/lib/tmdb';
 import { ELO_K_FACTOR, ELO_INITIAL_RATING } from '@reelrank/shared';
 import type { SoloRanking } from '@reelrank/shared';
 
+function computeBeliScore(position: number, total: number): number {
+  if (total <= 1) return 10;
+  return Math.round(((total - 1 - position) / (total - 1)) * 100) / 10;
+}
+
 export const GET = withAuth(async (_req, { user, requestId }) => {
+  const listDoc = await getDb().collection(COLLECTIONS.rankedLists).doc(user.id).get();
+
+  if (listDoc.exists) {
+    const movieIds: number[] = listDoc.data()!.movieIds ?? [];
+    if (movieIds.length === 0) {
+      return NextResponse.json({ data: [], requestId });
+    }
+
+    const movieResults = await Promise.all(
+      movieIds.map((id) => safeGetMovieById(id))
+    );
+
+    const warnings: string[] = [];
+    const rankings: SoloRanking[] = movieResults.map(({ movie, hydrated }, i) => {
+      if (!hydrated) warnings.push(`Movie ${movie.id} could not be loaded from TMDB`);
+      return {
+        movieId: movie.id,
+        movie,
+        beliScore: computeBeliScore(i, movieIds.length),
+        eloScore: 0,
+        swipeSignal: 0,
+        rank: i + 1,
+      };
+    });
+
+    return NextResponse.json({
+      data: rankings,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      requestId,
+    });
+  }
+
+  // Fallback: compute from Elo-based pairwise choices for users who haven't used the new system
   const [swipesSnap, choicesSnap] = await Promise.all([
     getDb().collection(COLLECTIONS.soloSwipes)
       .where('userId', '==', user.id)
@@ -61,13 +99,17 @@ export const GET = withAuth(async (_req, { user, requestId }) => {
   const rankings: SoloRanking[] = movieResults.map(({ movie }) => ({
     movieId: movie.id,
     movie,
+    beliScore: 0,
     eloScore: elos.get(movie.id) ?? ELO_INITIAL_RATING,
     swipeSignal: swipeSignals.get(movie.id) ?? 0,
     rank: 0,
   }));
 
   rankings.sort((a, b) => b.eloScore - a.eloScore);
-  rankings.forEach((r, i) => { r.rank = i + 1; });
+  rankings.forEach((r, i) => {
+    r.rank = i + 1;
+    r.beliScore = computeBeliScore(i, rankings.length);
+  });
 
   return NextResponse.json({
     data: rankings,

@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import type { Movie } from "@reelrank/shared";
-import { getPosterUrl, SWIPE_DECK_PRELOAD } from "@reelrank/shared";
+import { getPosterUrl } from "@reelrank/shared";
 
 interface Genre {
   id: number;
@@ -24,7 +24,22 @@ interface Genre {
 const ALL_GENRE_ID = -1;
 const LOW_DECK_THRESHOLD = 3;
 const SWIPE_THRESHOLD = 100;
-const DRAG_ROTATION_FACTOR = 15;
+const DRAG_ROTATION_FACTOR = 12;
+const STORAGE_KEY = "reelrank:discover:page:";
+const MAX_SKIP_PAGES = 5;
+
+function getSavedPage(genreId: number): number {
+  try {
+    const val = sessionStorage.getItem(STORAGE_KEY + genreId);
+    return val ? Math.max(1, parseInt(val, 10)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function savePage(genreId: number, page: number) {
+  try { sessionStorage.setItem(STORAGE_KEY + genreId, String(page)); } catch {}
+}
 
 export default function DiscoverPage() {
   const searchParams = useSearchParams();
@@ -40,7 +55,9 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [loadingGenres, setLoadingGenres] = useState(true);
   const [swiping, setSwiping] = useState(false);
+  const [swipedIdsReady, setSwipedIdsReady] = useState(false);
   const fetchingRef = useRef(false);
+  const swipedIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     api.movies.genres().then((res) => {
@@ -48,11 +65,15 @@ export default function DiscoverPage() {
       else if (res.error) toast.error(res.error);
       setLoadingGenres(false);
     });
+    api.solo.swipedIds().then((res) => {
+      if (res.data) swipedIdsRef.current = new Set(res.data);
+      setSwipedIdsReady(true);
+    });
   }, []);
 
   const fetchMovies = useCallback(
-    async (genreId: number, pageNum: number, replace = false) => {
-      if (fetchingRef.current) return;
+    async (genreId: number, pageNum: number, replace = false): Promise<number> => {
+      if (fetchingRef.current) return 0;
       fetchingRef.current = true;
       if (replace) setLoading(true);
 
@@ -61,27 +82,49 @@ export default function DiscoverPage() {
           ? await api.movies.trending(pageNum)
           : await api.movies.discover(genreId, pageNum);
 
+      let newCount = 0;
       if (res.data) {
         setTotalPages(res.data.totalPages);
-        setDeck((prev) =>
-          replace ? res.data!.movies : [...prev, ...res.data!.movies]
-        );
+        const filtered = res.data.movies.filter((m) => !swipedIdsRef.current.has(m.id));
+        newCount = filtered.length;
+        setDeck((prev) => replace ? filtered : [...prev, ...filtered]);
       } else if (res.error) {
         toast.error(res.error);
       }
 
       setLoading(false);
       fetchingRef.current = false;
+      return newCount;
     },
     []
   );
 
+  const loadInitialDeck = useCallback(
+    async (genreId: number) => {
+      setDeck([]);
+      setLoading(true);
+
+      let startPage = getSavedPage(genreId);
+      let skipped = 0;
+
+      while (skipped < MAX_SKIP_PAGES) {
+        const count = await fetchMovies(genreId, startPage, true);
+        if (count > 0) break;
+        skipped++;
+        startPage++;
+      }
+
+      setPage(startPage);
+      savePage(genreId, startPage);
+      setLoading(false);
+    },
+    [fetchMovies]
+  );
+
   useEffect(() => {
-    setDeck([]);
-    setPage(1);
-    setTotalPages(1);
-    fetchMovies(activeGenre, 1, true);
-  }, [activeGenre, fetchMovies]);
+    if (!swipedIdsReady) return;
+    loadInitialDeck(activeGenre);
+  }, [activeGenre, swipedIdsReady, loadInitialDeck]);
 
   useEffect(() => {
     if (
@@ -92,6 +135,7 @@ export default function DiscoverPage() {
     ) {
       const next = page + 1;
       setPage(next);
+      savePage(activeGenre, next);
       fetchMovies(activeGenre, next);
     }
   }, [deck.length, page, totalPages, activeGenre, fetchMovies]);
@@ -105,6 +149,7 @@ export default function DiscoverPage() {
       setSwiping(true);
 
       const movie = deck[0];
+      swipedIdsRef.current.add(movie.id);
       const res = await api.solo.swipe(movie.id, direction);
       if (res.error) {
         toast.error(res.error);
@@ -133,6 +178,7 @@ export default function DiscoverPage() {
   };
 
   const handleReset = () => {
+    savePage(activeGenre, 1);
     setPage(1);
     setTotalPages(1);
     fetchMovies(activeGenre, 1, true);
@@ -141,7 +187,7 @@ export default function DiscoverPage() {
   const isEmpty = !loading && deck.length === 0;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-8rem)] px-4">
       {/* Genre filter chips */}
       <div className="w-full max-w-lg mb-6 -mx-4 overflow-x-auto scrollbar-none">
         <div className="flex gap-2 px-4 pb-2">
@@ -236,6 +282,7 @@ export default function DiscoverPage() {
           ← Pass · Want →
         </p>
       )}
+
     </div>
   );
 }
@@ -263,6 +310,7 @@ function SwipeCard({
     [-300, 0, 300],
     [-DRAG_ROTATION_FACTOR, 0, DRAG_ROTATION_FACTOR]
   );
+  const scale = useTransform(x, [-300, 0, 300], [1.02, 1, 1.02]);
   const wantOpacity = useTransform(x, [0, 80], [0, 1]);
   const passOpacity = useTransform(x, [-80, 0], [1, 0]);
 
@@ -283,6 +331,7 @@ function SwipeCard({
       style={{
         x: isTop ? x : 0,
         rotate: isTop ? rotate : 0,
+        scale: isTop ? scale : 1,
         zIndex: 2 - index,
         pointerEvents: isTop ? "auto" : "none",
         cursor: isTop ? "grab" : "default",
@@ -296,14 +345,14 @@ function SwipeCard({
       exit={{
         x: exitDir === "right" ? 400 : -400,
         opacity: 0,
-        rotate: exitDir === "right" ? 20 : -20,
-        transition: { duration: 0.3 },
+        rotate: exitDir === "right" ? 15 : -15,
+        transition: { duration: 0.25, ease: "easeIn" },
       }}
       drag={isTop ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.9}
+      dragElastic={0.7}
       onDragEnd={handleDragEnd}
-      transition={{ type: "spring", stiffness: 300, damping: 26 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
       {poster ? (
         <Image

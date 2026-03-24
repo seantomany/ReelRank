@@ -2,6 +2,7 @@ export interface User {
   id: string;
   firebaseUid: string;
   email: string;
+  username: string | null;
   displayName: string | null;
   photoUrl: string | null;
   createdAt: Date;
@@ -40,12 +41,21 @@ export interface PairwiseChoice {
   createdAt: Date;
 }
 
+export type TriageZone = 'loved' | 'liked' | 'okay' | 'disliked';
+
+export interface RankedList {
+  userId: string;
+  movieIds: number[];
+  updatedAt: Date;
+}
+
 export type RoomStatus = 'lobby' | 'submitting' | 'swiping' | 'results';
 export type AlgorithmType = 'simple_majority_v1' | 'elo_group_v1' | 'ranked_choice_v1';
 
 export interface Room {
   id: string;
   code: string;
+  name?: string;
   hostId: string;
   status: RoomStatus;
   algorithmVersion: AlgorithmType;
@@ -60,7 +70,7 @@ export interface RoomMember {
   id: string;
   roomId: string;
   userId: string;
-  user?: Pick<User, 'id' | 'displayName' | 'photoUrl'>;
+  user?: Pick<User, 'id' | 'username' | 'displayName' | 'photoUrl'>;
   joinedAt: Date;
 }
 
@@ -105,6 +115,7 @@ export interface RoomResult {
 export interface SoloRanking {
   movieId: number;
   movie: Movie;
+  beliScore: number;
   eloScore: number;
   swipeSignal: number;
   rank: number;
@@ -126,8 +137,31 @@ export interface WatchedMovie {
 export interface MovieUserStatus {
   swipeDirection?: SwipeDirection;
   watched?: WatchedMovie;
+  beliScore?: number;
   eloScore?: number;
   rank?: number;
+}
+
+export interface RoomResultExtended extends RoomResult {
+  memberVotes: { userId: string; username: string | null; movieId: number; direction: SwipeDirection }[];
+  submissions: { movieId: number; submittedBy: { userId: string; username: string | null } }[];
+  memberStats: { userId: string; username: string | null; rightCount: number; leftCount: number; agreementScore: number }[];
+}
+
+export interface SoloInsights {
+  genreBreakdown: { genreId: number; genreName: string; rightCount: number; leftCount: number; percentage: number }[];
+  swipeRate: { rightSwipes: number; leftSwipes: number; ratio: number };
+  ratingDistribution: { bucket: string; count: number }[];
+  watchPatterns: { month: string; count: number; avgRating: number }[];
+  venueBreakdown: { venue: string; count: number }[];
+  topGenresByScore: { genreId: number; genreName: string; avgScore: number }[];
+  decadeBreakdown: { decade: string; count: number }[];
+  averageRating: number;
+  ratingByGenre: { genreId: number; genreName: string; avgRating: number; count: number }[];
+  dayOfWeekActivity: { day: string; count: number }[];
+  watchlistConversion: { rightSwiped: number; watched: number; rate: number };
+  crowdAgreement: { movies: { movieId: number; title: string; userRating: number; tmdbRating: number; diff: number }[]; avgDiff: number };
+  moviePersonality: { title: string; description: string; traits: string[] };
 }
 
 export interface ApiResponse<T> {

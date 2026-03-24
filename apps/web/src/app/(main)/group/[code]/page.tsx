@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ABLY_EVENTS } from "@reelrank/shared";
 import type { Room } from "@reelrank/shared";
 
-function memberName(member: { userId: string; user?: { displayName?: string | null } }): string {
+function memberName(member: { userId: string; user?: { username?: string | null; displayName?: string | null } }): string {
+  if (member.user?.username) return member.user.username;
   if (member.user?.displayName) return member.user.displayName;
   return member.userId.slice(0, 8);
 }

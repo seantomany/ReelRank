@@ -23,6 +23,7 @@ export const AlgorithmTypeSchema = z.enum([
 ]);
 
 export const CreateRoomInputSchema = z.object({
+  name: z.string().max(50).optional(),
   algorithmVersion: AlgorithmTypeSchema.optional().default('simple_majority_v1'),
 });
 
@@ -64,6 +65,17 @@ export const WatchedMovieInputSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
+export const TriageZoneSchema = z.enum(['loved', 'liked', 'okay', 'disliked']);
+
+export const RankMovieInputSchema = z.object({
+  movieId: z.number().int().positive(),
+  insertAtIndex: z.number().int().min(0),
+});
+
+export const UpdateProfileInputSchema = z.object({
+  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+});
+
 export type SoloSwipeInput = z.infer<typeof SoloSwipeInputSchema>;
 export type PairwiseChoiceInput = z.infer<typeof PairwiseChoiceInputSchema>;
 export type CreateRoomInput = z.infer<typeof CreateRoomInputSchema>;
@@ -72,4 +84,6 @@ export type SubmitMovieInput = z.infer<typeof SubmitMovieInputSchema>;
 export type RoomSwipeInput = z.infer<typeof RoomSwipeInputSchema>;
 export type StartRoomInput = z.infer<typeof StartRoomInputSchema>;
 export type MovieSearchQuery = z.infer<typeof MovieSearchQuerySchema>;
+export type RankMovieInput = z.infer<typeof RankMovieInputSchema>;
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
 export type WatchedMovieInput = z.infer<typeof WatchedMovieInputSchema>;

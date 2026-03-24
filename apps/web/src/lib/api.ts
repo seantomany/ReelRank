@@ -183,14 +183,23 @@ export const api = {
           movie?: import("@reelrank/shared").Movie;
         })[]
       >("/api/solo/watched"),
+    rank: (movieId: number, insertAtIndex: number) =>
+      apiFetch<import("@reelrank/shared").SoloRanking[]>(
+        "/api/solo/rank",
+        { method: "POST", body: JSON.stringify({ movieId, insertAtIndex }) }
+      ),
+    swipedIds: () =>
+      apiFetch<number[]>("/api/solo/swiped-ids"),
+    insights: () =>
+      apiFetch<import("@reelrank/shared").SoloInsights>("/api/solo/insights"),
   },
   rooms: {
-    create: (algorithmVersion?: string) =>
+    create: (name?: string, algorithmVersion?: string) =>
       apiFetch<{ id: string; code: string; status: string; hostId: string }>(
         "/api/rooms/create",
         {
           method: "POST",
-          body: JSON.stringify({ algorithmVersion }),
+          body: JSON.stringify({ name, algorithmVersion }),
         }
       ),
     join: (code: string) =>
@@ -208,11 +217,13 @@ export const api = {
         {
           id: string;
           code: string;
+          name?: string;
           hostId: string;
           status: string;
           algorithmVersion: string;
           memberCount: number;
           createdAt: string;
+          winnerMovie?: import("@reelrank/shared").Movie;
         }[]
       >("/api/rooms/history"),
     get: (code: string) =>
@@ -236,6 +247,11 @@ export const api = {
       apiFetch<import("@reelrank/shared").RoomResult>(
         `/api/rooms/${code}/results`
       ),
+    bonusRound: (code: string, data: { movieIds?: number[]; movieId?: number }) =>
+      apiFetch<{ bonusRoundId?: string; status: string; winnerId?: number; movie?: import("@reelrank/shared").Movie }>(
+        `/api/rooms/${code}/bonus-round`,
+        { method: "POST", body: JSON.stringify(data) }
+      ),
     leave: (code: string) =>
       apiFetch<{ left: boolean }>(`/api/rooms/${code}/leave`, {
         method: "POST",
@@ -245,6 +261,11 @@ export const api = {
     verify: () =>
       apiFetch<import("@reelrank/shared").User>("/api/auth/verify", {
         method: "POST",
+      }),
+    updateProfile: (data: { username: string }) =>
+      apiFetch<import("@reelrank/shared").User>("/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify(data),
       }),
     ablyToken: (roomCode: string) =>
       apiFetch<unknown>("/api/auth/ably-token", {

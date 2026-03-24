@@ -31,6 +31,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
       ...data,
       user: userData ? {
         id: data.userId,
+        username: userData.username ?? null,
         displayName: userData.displayName ?? null,
         photoUrl: userData.photoUrl ?? null,
       } : undefined,

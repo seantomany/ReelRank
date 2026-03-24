@@ -16,9 +16,10 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }) => {
   const swipeDocId = `${user.id}_${movieId}`;
   const watchedDocId = `${user.id}_${movieId}`;
 
-  const [swipeDoc, watchedDoc] = await Promise.all([
+  const [swipeDoc, watchedDoc, rankedListDoc] = await Promise.all([
     getDb().collection(COLLECTIONS.soloSwipes).doc(swipeDocId).get(),
     getDb().collection(COLLECTIONS.watchedMovies).doc(watchedDocId).get(),
+    getDb().collection(COLLECTIONS.rankedLists).doc(user.id).get(),
   ]);
 
   const status: MovieUserStatus = {};
@@ -40,6 +41,16 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }) => {
       createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? data.createdAt,
       updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() ?? data.updatedAt,
     };
+  }
+
+  if (rankedListDoc.exists) {
+    const movieIds: number[] = rankedListDoc.data()!.movieIds ?? [];
+    const idx = movieIds.indexOf(movieId);
+    if (idx !== -1) {
+      const total = movieIds.length;
+      status.beliScore = total <= 1 ? 10 : Math.round(((total - 1 - idx) / (total - 1)) * 100) / 10;
+      status.rank = idx + 1;
+    }
   }
 
   return NextResponse.json({ data: status, requestId });

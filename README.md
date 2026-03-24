@@ -2,23 +2,41 @@
 
 Discover, rank, and decide on movies — solo or with friends. A full-stack monorepo with a Next.js API, React web app, and React Native/Expo mobile app.
 
+**Live:** [rr-movies.vercel.app](https://rr-movies.vercel.app) · **API:** [reelrank-api.vercel.app](https://reelrank-api.vercel.app)
+
 ## Features
 
 ### Solo Mode
-- **Swipe to Discover** — Tinder-style card deck for trending movies or filtered by genre. Swipe right to add to your watchlist, left to pass.
-- **This or That** — Pairwise comparisons that refine your personal Elo-based movie rankings over time.
+- **Swipe to Discover** — Tinder-style card deck for trending movies or filtered by genre. Swipe right to add to your watchlist, left to pass. Filters out previously swiped movies and remembers your position per genre.
+- **Beli-Style Ranking** — After logging a movie as watched, a guided ranking flow places it in your ordered list via triage (Loved/Liked/Okay/Disliked) and binary search comparisons. Movies are scored 0.0–10.0 using linear interpolation from rank position.
+- **Refine Rankings** — Bounded 10-comparison sessions of pairwise choices between adjacent movies to fine-tune your ordered list, with a progress bar and early exit.
 - **Log Watched** — Record what you've seen with a rating (1–10), venue, date, and notes.
-- **Profile & Rankings** — View your ranked list, watchlist, watched history, and stats (total ranked, watched count, win rate).
+- **Profile** — Summary stat cards (ranked, watched, watchlist, avg rating), top 5 movie showcase, favorite genre chips, editable username, and tabs for full rankings/watchlist/watched lists.
+- **Stats Dashboard** — Dedicated `/stats` page with 12 visualization sections:
+  - Movie Personality (computed title + trait badges)
+  - Swipe Overview (right/left/want rate)
+  - Genre Taste Profile (bar chart)
+  - Genres by Your Rating (progress bars)
+  - Decade Breakdown (bar chart)
+  - Rating Distribution (Beli score histogram)
+  - Watch Habits by Day of Week (bar chart)
+  - Monthly Watch Activity (bar chart)
+  - Where You Watch (venue pie chart)
+  - You vs. the Crowd (user rating vs TMDB average deviation)
+  - Watchlist Funnel (conversion rate with progress ring)
+  - Top Genres by Beli Score (progress bars)
 
 ### Group Mode
-- **Create or Join Rooms** — Generate a 6-character room code and invite friends.
+- **Create or Join Rooms** — Generate a 6-character room code, optionally name the session, and invite friends.
 - **Submit Movies** — Each member adds movies to the group pool.
 - **Group Swipe** — Everyone swipes independently on the shared pool.
-- **Results** — Three pluggable ranking algorithms determine the group's top pick:
+- **Results** — Three pluggable ranking algorithms:
   - `simple_majority_v1` — percentage of right swipes
-  - `elo_group_v1` — Elo ratings derived from each user's swipe preferences
-  - `ranked_choice_v1` — ranked-choice voting from individual orderings
-- **Real-Time Updates** — Ably powers live member joins, room status changes, swipe progress, and results notifications.
+  - `elo_group_v1` — Elo ratings from swipe preferences
+  - `ranked_choice_v1` — ranked-choice voting
+- **Group Picks** — All unanimously agreed movies highlighted, with an optional bonus round tiebreaker.
+- **Member Contributions** — Expandable vote breakdown per movie, submission attribution, and per-member agreement stats.
+- **Real-Time Updates** — Ably powers live member joins, room status changes, swipe progress, results, and bonus round events.
 
 ## Architecture
 
@@ -26,7 +44,7 @@ Discover, rank, and decide on movies — solo or with friends. A full-stack mono
 ReelRank/
 ├── apps/
 │   ├── api/          Next.js 15 API (App Router, serverless on Vercel)
-│   ├── web/          Next.js 15 web app (React 19, Tailwind 4, Framer Motion)
+│   ├── web/          Next.js 15 web app (React 19, Tailwind 4, Framer Motion, Recharts)
 │   └── mobile/       Expo SDK 52 / React Native 0.76
 ├── packages/
 │   └── shared/       Zod schemas, TypeScript types, constants
@@ -38,7 +56,7 @@ ReelRank/
 ### Key Patterns
 - **Shared validation** — `@reelrank/shared` keeps API, web, and mobile aligned on Zod schemas and domain types.
 - **Auth middleware** — API routes compose `withAuth`, `withRateLimit`, and `withAuthAndRateLimit` wrappers for Firebase token verification and IP-based rate limiting via Upstash Redis.
-- **Elo ranking** — Solo pairwise choices update per-movie Elo ratings (`K=32`, initial `1500`). Rankings blend Elo score with swipe signal.
+- **Beli-style ranking** — Binary insertion sort with triage zones and pairwise comparisons. Scores derived via linear interpolation from rank position (0.0–10.0).
 - **Distributed locking** — Group results use a Redis lock to prevent double computation, then cache in Firestore.
 - **Monorepo Metro** — Mobile Metro config resolves `node_modules` at both project and monorepo root for proper workspace package resolution.
 
@@ -47,10 +65,10 @@ ReelRank/
 | Layer | Technology |
 |-------|-----------|
 | **API** | Next.js 15, Firebase Admin SDK, Upstash Redis, Ably, Zod |
-| **Web** | Next.js 15, React 19, Tailwind CSS 4, Framer Motion, Firebase Auth, Ably |
+| **Web** | Next.js 15, React 19, Tailwind CSS 4, Framer Motion, Recharts, Firebase Auth, Ably |
 | **Mobile** | Expo 52, React Native 0.76, React Navigation 7, React Native Paper, Firebase Auth, Ably, Reanimated |
 | **Shared** | TypeScript, Zod |
-| **Infrastructure** | Vercel (API hosting), EAS Build (mobile CI), Firebase (auth + Firestore), Upstash (Redis), Ably (realtime), TMDB (movie data) |
+| **Infrastructure** | Vercel (API + web hosting), EAS Build (mobile CI), Firebase (auth + Firestore), Upstash (Redis), Ably (realtime), TMDB (movie data) |
 
 ## Getting Started
 
@@ -121,6 +139,7 @@ pnpm dev:mobile
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/auth/verify` | Verify Firebase token, return user |
+| PATCH | `/api/auth/profile` | Update username |
 | POST | `/api/auth/ably-token` | Generate scoped Ably token for a room |
 
 ### Movies (TMDB proxy)
@@ -136,51 +155,38 @@ pnpm dev:mobile
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/solo/swipe` | Record a swipe (want/pass) |
+| GET | `/api/solo/swiped-ids` | Get all swiped movie IDs |
 | POST | `/api/solo/pairwise` | Record a pairwise choice |
-| GET | `/api/solo/ranking` | Get Elo-based rankings |
+| POST | `/api/solo/rank` | Insert movie at rank position (Beli-style) |
+| GET | `/api/solo/ranking` | Get ranked list with Beli scores |
 | GET | `/api/solo/lists?type=want\|pass` | Get watchlist or passed movies |
 | GET | `/api/solo/status?movieId=` | Get user status for a movie |
 | GET | `/api/solo/stats` | Get user stats |
+| GET | `/api/solo/insights` | Get full analytics (genres, decades, personality, etc.) |
 | POST | `/api/solo/watched` | Log a watched movie |
 | GET | `/api/solo/watched` | Get watched history |
 
 ### Rooms (Group)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/rooms/create` | Create a room |
+| POST | `/api/rooms/create` | Create a room (optional name) |
 | POST | `/api/rooms/join` | Join by code |
-| GET | `/api/rooms/history` | User's room history |
+| GET | `/api/rooms/history` | User's room history with winner movies |
 | GET | `/api/rooms/[code]` | Room details + members + movies |
 | POST | `/api/rooms/[code]/submit` | Add movie to room pool |
 | POST | `/api/rooms/[code]/start` | Advance room phase (host only) |
 | POST | `/api/rooms/[code]/swipe` | Record group swipe |
-| GET | `/api/rooms/[code]/results` | Compute/fetch results |
+| GET | `/api/rooms/[code]/results` | Compute/fetch results with member contributions |
+| POST | `/api/rooms/[code]/bonus-round` | Start or vote in bonus round |
 | POST | `/api/rooms/[code]/leave` | Leave room |
-
-## Mobile Screens
-
-| Screen | Description |
-|--------|-------------|
-| Login | Email/password auth (sign in + sign up) |
-| Home | Stats, quick actions, trending carousel, genre browse |
-| Discover (SoloSwipe) | Swipe card deck with genre filtering |
-| Search | Debounced movie search with quick-add to watchlist |
-| Movie Detail | Full movie info, watchlist toggle, log watched |
-| Log Watched | Rating, venue, notes entry |
-| This or That | Side-by-side pairwise comparison |
-| Profile | Rankings, watchlist, and watched tabs with stats |
-| Group | Create/join rooms, recent room history |
-| Create Room | One-tap room creation |
-| Join Room | 6-character code entry |
-| Lobby | Live member list, room code display, host controls |
-| Submit Movies | Search and add movies to room pool |
-| Group Swipe | Swipe through the room's movie deck |
-| Group Results | Winner reveal with score breakdown |
 
 ## Deployment
 
+### Web (Vercel)
+The web app is deployed to Vercel at [rr-movies.vercel.app](https://rr-movies.vercel.app). The `vercel.json` at the repo root configures pnpm + Turborepo builds targeting `@reelrank/web`.
+
 ### API (Vercel)
-The API is deployed to Vercel at `https://reelrank-api.vercel.app`. The `vercel.json` at the repo root configures pnpm + Turborepo builds targeting `@reelrank/api`.
+The API is deployed to Vercel at [reelrank-api.vercel.app](https://reelrank-api.vercel.app).
 
 ### Mobile (EAS Build)
 EAS Build handles iOS and Android builds in the cloud. Profiles are configured in `apps/mobile/eas.json`:

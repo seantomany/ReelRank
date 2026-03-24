@@ -14,6 +14,7 @@ import type { Movie } from "@reelrank/shared";
 interface RoomHistoryItem {
   id: string;
   code: string;
+  name?: string;
   hostId: string;
   status: string;
   memberCount: number;
@@ -109,9 +110,16 @@ export default function GroupHubPage() {
                       background: STATUS_DOT[room.status] ?? "#888",
                     }}
                   />
-                  <span className="font-mono text-sm text-[#e8e8e8] group-hover:text-white transition-colors">
-                    {room.code}
-                  </span>
+                  <div className="flex flex-col">
+                    {room.name && (
+                      <span className="text-sm text-[#e8e8e8] group-hover:text-white transition-colors">
+                        {room.name}
+                      </span>
+                    )}
+                    <span className="font-mono text-xs text-[#888] group-hover:text-[#aaa] transition-colors">
+                      {room.code}
+                    </span>
+                  </div>
                   <span className="ml-3 text-xs text-[#888]">
                     {STATUS_LABEL[room.status] ?? room.status}
                   </span>

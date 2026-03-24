@@ -101,9 +101,44 @@ export default function HomePage() {
         </p>
       </div>
 
+      {/* Your Watchlist (moved above trending) */}
+      {watchlist.length > 0 && (
+        <section className="mt-2">
+          <div className="flex items-baseline justify-between pl-4 md:pl-6 pr-4 md:pr-6 mb-2">
+            <p className="text-xs uppercase tracking-widest text-[#888]">Your Watchlist</p>
+            <Link href="/profile" className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+              See all
+            </Link>
+          </div>
+          <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
+            {watchlist.slice(0, 20).map((item) => {
+              const poster = getPosterUrl(item.movie.posterPath, "medium");
+              return (
+                <Link key={item.id} href={`/movie/${item.movie.id}`} className="shrink-0 block">
+                  <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
+                    {poster ? (
+                      <Image
+                        src={poster}
+                        alt={item.movie.title}
+                        width={130}
+                        height={195}
+                        className="w-full h-full object-cover hover:opacity-80 transition-opacity"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#111]" />
+                    )}
+                  </div>
+                  <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{item.movie.title}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Hero */}
       {hero && heroBackdrop && (
-        <Link href={`/movie/${hero.id}`} className="block relative">
+        <Link href={`/movie/${hero.id}`} className="block relative mt-6">
           <div className="relative w-full aspect-[16/9] md:aspect-[16/7]">
             <Image src={heroBackdrop} alt={hero.title} fill priority className="object-cover" />
             <div
@@ -145,41 +180,6 @@ export default function HomePage() {
           })}
         </div>
       </section>
-
-      {/* Your Watchlist */}
-      {watchlist.length > 0 && (
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between pl-4 md:pl-6 pr-4 md:pr-6 mb-2">
-            <p className="text-xs uppercase tracking-widest text-[#888]">Your Watchlist</p>
-            <Link href="/profile" className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
-              See all
-            </Link>
-          </div>
-          <div className="flex gap-1 overflow-x-auto pl-4 md:pl-6" style={{ scrollbarWidth: "none" }}>
-            {watchlist.slice(0, 20).map((item) => {
-              const poster = getPosterUrl(item.movie.posterPath, "medium");
-              return (
-                <Link key={item.id} href={`/movie/${item.movie.id}`} className="shrink-0 block">
-                  <div className="w-[100px] md:w-[130px] aspect-[2/3] rounded-sm overflow-hidden">
-                    {poster ? (
-                      <Image
-                        src={poster}
-                        alt={item.movie.title}
-                        width={130}
-                        height={195}
-                        className="w-full h-full object-cover hover:opacity-80 transition-opacity"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-[#111]" />
-                    )}
-                  </div>
-                  <p className="text-xs text-[#888] truncate mt-1 w-[100px] md:w-[130px]">{item.movie.title}</p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Recently Watched */}
       {recentWatched.length > 0 && (

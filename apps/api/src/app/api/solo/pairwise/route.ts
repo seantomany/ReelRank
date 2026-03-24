@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import { withAuthAndRateLimit } from '@/lib/middleware';
 import { parseJsonBody } from '@/lib/route-helpers';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
-import { PairwiseChoiceInputSchema, ELO_K_FACTOR, ELO_INITIAL_RATING } from '@reelrank/shared';
+import { PairwiseChoiceInputSchema } from '@reelrank/shared';
 import { ApiError } from '@/lib/errors';
 import { safeGetMovieById } from '@/lib/tmdb';
 import type { SoloRanking } from '@reelrank/shared';
+
+function computeBeliScore(position: number, total: number): number {
+  if (total <= 1) return 10;
+  return Math.round(((total - 1 - position) / (total - 1)) * 100) / 10;
+}
 
 export const POST = withAuthAndRateLimit('general', async (req, { user, requestId }) => {
   const body = await parseJsonBody<unknown>(req, requestId);
@@ -15,6 +20,7 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
   }
 
   const { movieAId, movieBId, chosenId } = parsed.data;
+  const loserId = chosenId === movieAId ? movieBId : movieAId;
   const now = new Date();
 
   const docRef = getDb().collection(COLLECTIONS.pairwiseChoices).doc();
@@ -26,6 +32,23 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
     chosenId,
     createdAt: now,
   });
+
+  // Update the ranked list: if winner is below loser, swap so winner is higher
+  const listRef = getDb().collection(COLLECTIONS.rankedLists).doc(user.id);
+  const listDoc = await listRef.get();
+
+  if (listDoc.exists) {
+    const movieIds: number[] = listDoc.data()!.movieIds ?? [];
+    const winnerIdx = movieIds.indexOf(chosenId);
+    const loserIdx = movieIds.indexOf(loserId);
+
+    if (winnerIdx !== -1 && loserIdx !== -1 && winnerIdx > loserIdx) {
+      movieIds.splice(winnerIdx, 1);
+      movieIds.splice(loserIdx, 0, chosenId);
+
+      await listRef.update({ movieIds, updatedAt: now });
+    }
+  }
 
   const countSnap = await getDb()
     .collection(COLLECTIONS.pairwiseChoices)
@@ -50,58 +73,21 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
 });
 
 async function computeUserRankings(userId: string): Promise<SoloRanking[]> {
-  const [swipesSnap, choicesSnap] = await Promise.all([
-    getDb().collection(COLLECTIONS.soloSwipes)
-      .where('userId', '==', userId)
-      .where('direction', '==', 'right')
-      .get(),
-    getDb().collection(COLLECTIONS.pairwiseChoices)
-      .where('userId', '==', userId)
-      .get(),
-  ]);
+  const listDoc = await getDb().collection(COLLECTIONS.rankedLists).doc(userId).get();
 
-  const movieIds = new Set<number>();
-  const swipeSignals = new Map<number, number>();
+  if (listDoc.exists) {
+    const movieIds: number[] = listDoc.data()!.movieIds ?? [];
+    const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
 
-  for (const doc of swipesSnap.docs) {
-    const data = doc.data();
-    movieIds.add(data.movieId);
-    swipeSignals.set(data.movieId, 1);
+    return movieResults.map(({ movie }, i) => ({
+      movieId: movie.id,
+      movie,
+      beliScore: computeBeliScore(i, movieIds.length),
+      eloScore: 0,
+      swipeSignal: 0,
+      rank: i + 1,
+    }));
   }
 
-  const elos = new Map<number, number>();
-  for (const doc of choicesSnap.docs) {
-    const data = doc.data();
-    movieIds.add(data.movieAId);
-    movieIds.add(data.movieBId);
-
-    const winId = data.chosenId;
-    const loseId = data.chosenId === data.movieAId ? data.movieBId : data.movieAId;
-
-    const winElo = elos.get(winId) ?? ELO_INITIAL_RATING;
-    const loseElo = elos.get(loseId) ?? ELO_INITIAL_RATING;
-
-    const expectedWin = 1 / (1 + Math.pow(10, (loseElo - winElo) / 400));
-    const expectedLose = 1 / (1 + Math.pow(10, (winElo - loseElo) / 400));
-
-    elos.set(winId, winElo + ELO_K_FACTOR * (1 - expectedWin));
-    elos.set(loseId, loseElo + ELO_K_FACTOR * (0 - expectedLose));
-  }
-
-  const movieResults = await Promise.all(
-    Array.from(movieIds).map((id) => safeGetMovieById(id))
-  );
-
-  const rankings: SoloRanking[] = movieResults.map(({ movie }) => ({
-    movieId: movie.id,
-    movie,
-    eloScore: elos.get(movie.id) ?? ELO_INITIAL_RATING,
-    swipeSignal: swipeSignals.get(movie.id) ?? 0,
-    rank: 0,
-  }));
-
-  rankings.sort((a, b) => b.eloScore - a.eloScore);
-  rankings.forEach((r, i) => { r.rank = i + 1; });
-
-  return rankings;
+  return [];
 }

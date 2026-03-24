@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RankFlowModal } from "@/components/rank-flow-modal";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import type { Movie } from "@reelrank/shared";
@@ -19,7 +20,7 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [showRankFlow, setShowRankFlow] = useState(false);
 
   const [rating, setRating] = useState(7);
   const [venue, setVenue] = useState<(typeof VENUES)[number]>("Home");
@@ -47,9 +48,9 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
       setSubmitting(false);
       return;
     }
-    setSuccess(true);
     toast.success(`Logged ${movie?.title ?? "movie"} — ${rating}/10`);
-    setTimeout(() => router.push(`/movie/${id}`), 600);
+    setSubmitting(false);
+    setShowRankFlow(true);
   }
 
   if (loading) {
@@ -65,18 +66,14 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
     );
   }
 
-  if (success) {
+  if (showRankFlow && movie) {
     return (
-      <div className="min-h-screen bg-[#000] flex items-center justify-center">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-center"
-        >
-          <p className="text-4xl">✓</p>
-          <p className="text-sm text-[#888] mt-2">Logged</p>
-        </motion.div>
-      </div>
+      <RankFlowModal
+        movie={movie}
+        open
+        onClose={() => router.push(`/movie/${id}`)}
+        onSkip={() => router.push(`/movie/${id}`)}
+      />
     );
   }
 

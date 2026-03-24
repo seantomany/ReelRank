@@ -7,8 +7,78 @@ import { publishToRoom } from '@/lib/ably';
 import { safeGetMovieById } from '@/lib/tmdb';
 import { computeSimpleMajority, computeEloGroup, computeRankedChoice } from '@/lib/algorithms';
 import { ABLY_EVENTS } from '@reelrank/shared';
-import type { Movie, RoomSwipe, AlgorithmType } from '@reelrank/shared';
+import type { Movie, RoomSwipe, AlgorithmType, SwipeDirection } from '@reelrank/shared';
 import { ApiError } from '@/lib/errors';
+
+async function getMemberDetails(roomRef: FirebaseFirestore.DocumentReference) {
+  const [swipesSnap, moviesSnap, membersSnap] = await Promise.all([
+    roomRef.collection('swipes').get(),
+    roomRef.collection('movies').get(),
+    roomRef.collection('members').get(),
+  ]);
+
+  const memberIds = membersSnap.docs.map((d) => d.data().userId as string);
+  const userRefs = memberIds.map((uid) => getDb().collection(COLLECTIONS.users).doc(uid));
+  const userDocs = userRefs.length > 0 ? await getDb().getAll(...userRefs) : [];
+  const userMap = new Map(
+    userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!])
+  );
+
+  const getUsername = (userId: string) => userMap.get(userId)?.username ?? null;
+
+  const memberVotes = swipesSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      userId: data.userId as string,
+      username: getUsername(data.userId),
+      movieId: data.movieId as number,
+      direction: data.direction as SwipeDirection,
+    };
+  });
+
+  const submissions = moviesSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      movieId: data.movieId as number,
+      submittedBy: {
+        userId: data.submittedByUserId as string,
+        username: getUsername(data.submittedByUserId),
+      },
+    };
+  });
+
+  const memberStats = memberIds.map((userId) => {
+    const userSwipes = memberVotes.filter((v) => v.userId === userId);
+    const rightCount = userSwipes.filter((v) => v.direction === 'right').length;
+    const leftCount = userSwipes.filter((v) => v.direction === 'left').length;
+
+    const rightMovieIds = new Set(userSwipes.filter((v) => v.direction === 'right').map((v) => v.movieId));
+    const allRightSets = memberIds
+      .filter((uid) => uid !== userId)
+      .map((uid) => new Set(memberVotes.filter((v) => v.userId === uid && v.direction === 'right').map((v) => v.movieId)));
+
+    let agreementScore = 0;
+    if (allRightSets.length > 0) {
+      const agreements = allRightSets.map((otherSet) => {
+        const allMovies = new Set([...rightMovieIds, ...otherSet]);
+        if (allMovies.size === 0) return 1;
+        const overlap = [...rightMovieIds].filter((id) => otherSet.has(id)).length;
+        return overlap / allMovies.size;
+      });
+      agreementScore = Math.round((agreements.reduce((a, b) => a + b, 0) / agreements.length) * 100);
+    }
+
+    return {
+      userId,
+      username: getUsername(userId),
+      rightCount,
+      leftCount,
+      agreementScore,
+    };
+  });
+
+  return { memberVotes, submissions, memberStats, swipesSnap, moviesSnap, membersSnap };
+}
 
 export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { user, requestId, params }) => {
   const code = validateRoomCode(params?.code ?? '', requestId);
@@ -24,8 +94,14 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     .get();
 
   if (!cachedResults.empty) {
+    const { memberVotes, submissions, memberStats } = await getMemberDetails(roomRef);
     return NextResponse.json({
-      data: cachedResults.docs[0].data(),
+      data: {
+        ...cachedResults.docs[0].data(),
+        memberVotes,
+        submissions,
+        memberStats,
+      },
       requestId,
     });
   }
@@ -47,17 +123,17 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
       .get();
 
     if (!retryResults.empty) {
-      return NextResponse.json({ data: retryResults.docs[0].data(), requestId });
+      const { memberVotes, submissions, memberStats } = await getMemberDetails(roomRef);
+      return NextResponse.json({
+        data: { ...retryResults.docs[0].data(), memberVotes, submissions, memberStats },
+        requestId,
+      });
     }
     throw new ApiError(409, 'Results are being computed, please try again', requestId);
   }
 
   try {
-    const [swipesSnap, moviesSnap, membersSnap] = await Promise.all([
-      roomRef.collection('swipes').get(),
-      roomRef.collection('movies').get(),
-      roomRef.collection('members').get(),
-    ]);
+    const { memberVotes, submissions, memberStats, swipesSnap, moviesSnap, membersSnap } = await getMemberDetails(roomRef);
 
     const swipes: RoomSwipe[] = swipesSnap.docs.map((d) => {
       const data = d.data();
@@ -117,7 +193,12 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     });
 
     return NextResponse.json({
-      data: resultData,
+      data: {
+        ...resultData,
+        memberVotes,
+        submissions,
+        memberStats,
+      },
       ...(warnings.length > 0 ? { warnings } : {}),
       requestId,
     });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@/lib/middleware';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
+import { safeGetMovieById } from '@/lib/tmdb';
 
 export const GET = withAuth(async (_req, { user, requestId }) => {
   const snapshot = await getDb()
@@ -14,6 +15,7 @@ export const GET = withAuth(async (_req, { user, requestId }) => {
     return {
       id: doc.id,
       code: data.code,
+      name: data.name ?? undefined,
       hostId: data.hostId,
       status: data.status,
       algorithmVersion: data.algorithmVersion,
@@ -24,7 +26,32 @@ export const GET = withAuth(async (_req, { user, requestId }) => {
   });
 
   rooms.sort((a, b) => b._ts - a._ts);
-  const result = rooms.slice(0, 20).map(({ _ts, ...rest }) => rest);
+  const recent = rooms.slice(0, 20);
 
-  return NextResponse.json({ data: result, requestId });
+  const enriched = await Promise.all(
+    recent.map(async ({ _ts, ...rest }) => {
+      if (rest.status === 'results') {
+        const resultsSnap = await getDb()
+          .collection(COLLECTIONS.rooms)
+          .doc(rest.id)
+          .collection('results')
+          .orderBy('computedAt', 'desc')
+          .limit(1)
+          .get();
+
+        if (!resultsSnap.empty) {
+          const resultData = resultsSnap.docs[0].data();
+          const ranked = resultData.rankedMovies;
+          if (ranked && ranked.length > 0) {
+            const winnerId = ranked[0].movieId;
+            const { movie } = await safeGetMovieById(winnerId);
+            return { ...rest, winnerMovie: movie };
+          }
+        }
+      }
+      return rest;
+    })
+  );
+
+  return NextResponse.json({ data: enriched, requestId });
 });

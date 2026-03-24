@@ -24,7 +24,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     <AuthGuard>
       <Navbar onSearchOpen={() => setSearchOpen(true)} />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <main className="pt-12 md:pt-14 pb-20 md:pb-0 min-h-screen">
+      <main className="pt-12 md:pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0 min-h-[100dvh]">
         {children}
       </main>
     </AuthGuard>

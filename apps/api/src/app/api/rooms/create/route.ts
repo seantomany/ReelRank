@@ -46,6 +46,7 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
     const roomData = {
       id: roomRef.id,
       code,
+      ...(parsed.data.name ? { name: parsed.data.name } : {}),
       hostId: user.id,
       status: 'lobby' as const,
       algorithmVersion: parsed.data.algorithmVersion,
