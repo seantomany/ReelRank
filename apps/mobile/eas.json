@@ -10,7 +10,16 @@
       "ios": {
         "simulator": false
       },
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "FIREBASE_API_KEY": "AIzaSyBFDmY4Qv_5bhQ3unbFz-kfTlOOATz_TQI",
+        "FIREBASE_AUTH_DOMAIN": "reelrank2026.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "reelrank2026",
+        "FIREBASE_STORAGE_BUCKET": "reelrank2026.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "388077167916",
+        "FIREBASE_APP_ID": "1:388077167916:web:668bb301eaebf617a57889",
+        "API_URL": "https://reel-rank-api.vercel.app"
+      }
     },
     "development-simulator": {
       "developmentClient": true,
@@ -19,13 +28,13 @@
         "simulator": true
       },
       "env": {
-        "FIREBASE_API_KEY": "${FIREBASE_API_KEY}",
-        "FIREBASE_AUTH_DOMAIN": "${FIREBASE_AUTH_DOMAIN}",
-        "FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID}",
-        "FIREBASE_STORAGE_BUCKET": "${FIREBASE_STORAGE_BUCKET}",
-        "FIREBASE_MESSAGING_SENDER_ID": "${FIREBASE_MESSAGING_SENDER_ID}",
-        "FIREBASE_APP_ID": "${FIREBASE_APP_ID}",
-        "API_URL": "${API_URL}"
+        "FIREBASE_API_KEY": "AIzaSyBFDmY4Qv_5bhQ3unbFz-kfTlOOATz_TQI",
+        "FIREBASE_AUTH_DOMAIN": "reelrank2026.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "reelrank2026",
+        "FIREBASE_STORAGE_BUCKET": "reelrank2026.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "388077167916",
+        "FIREBASE_APP_ID": "1:388077167916:web:668bb301eaebf617a57889",
+        "API_URL": "https://reel-rank-api.vercel.app"
       }
     },
     "preview": {
@@ -34,25 +43,25 @@
         "simulator": false
       },
       "env": {
-        "FIREBASE_API_KEY": "${FIREBASE_API_KEY}",
-        "FIREBASE_AUTH_DOMAIN": "${FIREBASE_AUTH_DOMAIN}",
-        "FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID}",
-        "FIREBASE_STORAGE_BUCKET": "${FIREBASE_STORAGE_BUCKET}",
-        "FIREBASE_MESSAGING_SENDER_ID": "${FIREBASE_MESSAGING_SENDER_ID}",
-        "FIREBASE_APP_ID": "${FIREBASE_APP_ID}",
-        "API_URL": "${API_URL}"
+        "FIREBASE_API_KEY": "AIzaSyBFDmY4Qv_5bhQ3unbFz-kfTlOOATz_TQI",
+        "FIREBASE_AUTH_DOMAIN": "reelrank2026.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "reelrank2026",
+        "FIREBASE_STORAGE_BUCKET": "reelrank2026.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "388077167916",
+        "FIREBASE_APP_ID": "1:388077167916:web:668bb301eaebf617a57889",
+        "API_URL": "https://reel-rank-api.vercel.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "FIREBASE_API_KEY": "${FIREBASE_API_KEY}",
-        "FIREBASE_AUTH_DOMAIN": "${FIREBASE_AUTH_DOMAIN}",
-        "FIREBASE_PROJECT_ID": "${FIREBASE_PROJECT_ID}",
-        "FIREBASE_STORAGE_BUCKET": "${FIREBASE_STORAGE_BUCKET}",
-        "FIREBASE_MESSAGING_SENDER_ID": "${FIREBASE_MESSAGING_SENDER_ID}",
-        "FIREBASE_APP_ID": "${FIREBASE_APP_ID}",
-        "API_URL": "${API_URL}"
+        "FIREBASE_API_KEY": "AIzaSyBFDmY4Qv_5bhQ3unbFz-kfTlOOATz_TQI",
+        "FIREBASE_AUTH_DOMAIN": "reelrank2026.firebaseapp.com",
+        "FIREBASE_PROJECT_ID": "reelrank2026",
+        "FIREBASE_STORAGE_BUCKET": "reelrank2026.firebasestorage.app",
+        "FIREBASE_MESSAGING_SENDER_ID": "388077167916",
+        "FIREBASE_APP_ID": "1:388077167916:web:668bb301eaebf617a57889",
+        "API_URL": "https://reel-rank-api.vercel.app"
       }
     }
   },
