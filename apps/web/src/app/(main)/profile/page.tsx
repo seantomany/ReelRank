@@ -38,6 +38,7 @@ export default function ProfilePage() {
   const [tab, setTab] = useState("rankings");
   const [stats, setStats] = useState<Stats | null>(null);
   const [username, setUsername] = useState("");
+  const [savedUsername, setSavedUsername] = useState("");
   const [editingUsername, setEditingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
@@ -51,7 +52,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     api.auth.verify().then((res) => {
-      if (res.data?.username) setUsername(res.data.username);
+      if (res.data?.username) {
+        setUsername(res.data.username);
+        setSavedUsername(res.data.username);
+      }
     });
     api.solo.stats().then((res) => {
       if (res.data) setStats(res.data);
@@ -90,6 +94,7 @@ export default function ProfilePage() {
     const res = await api.auth.updateProfile({ username: username.trim() });
     if (res.data) {
       toast.success("Username updated");
+      setSavedUsername(username.trim());
       setEditingUsername(false);
     } else if (res.error) {
       toast.error(res.error);
@@ -157,12 +162,12 @@ export default function ProfilePage() {
                 maxLength={20}
                 className="bg-transparent border-b border-[rgba(255,255,255,0.1)] text-lg font-semibold text-[#e8e8e8] outline-none w-40"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter") handleSaveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveUsername(); if (e.key === "Escape") { setUsername(savedUsername); setEditingUsername(false); } }}
               />
               <button onClick={handleSaveUsername} disabled={savingUsername} className="text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors">
                 {savingUsername ? "..." : "Save"}
               </button>
-              <button onClick={() => setEditingUsername(false)} className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+              <button onClick={() => { setUsername(savedUsername); setEditingUsername(false); }} className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
                 Cancel
               </button>
             </div>

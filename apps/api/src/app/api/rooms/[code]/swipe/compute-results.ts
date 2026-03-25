@@ -37,14 +37,10 @@ export async function computeAndStoreResults(
     };
   });
 
-  const warnings: string[] = [];
   const movieIds = moviesSnap.docs.map((d) => d.data().movieId);
   const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
 
-  const movies: Movie[] = movieResults.map(({ movie, hydrated }) => {
-    if (!hydrated) warnings.push(`Movie ${movie.id} could not be loaded from TMDB`);
-    return movie;
-  });
+  const movies: Movie[] = movieResults.map(({ movie }) => movie);
 
   const totalMembers = membersSnap.size;
   const algorithmVersion = (room.algorithmVersion ?? 'simple_majority_v1') as AlgorithmType;
@@ -62,21 +58,29 @@ export async function computeAndStoreResults(
   }
 
   const now = new Date();
+  const db = getDb();
   const resultRef = roomRef.collection('results').doc();
-  const resultData = {
-    id: resultRef.id,
-    roomId,
-    computedAt: now,
-    algorithmVersion,
-    rankedMovies,
-  };
 
-  await resultRef.set(resultData);
-
-  await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
-    status: 'results',
-    updatedAt: now,
+  const wrote = await db.runTransaction(async (txn) => {
+    const check = await txn.get(
+      roomRef.collection('results').orderBy('computedAt', 'desc').limit(1)
+    );
+    if (!check.empty) return false;
+    txn.set(resultRef, {
+      id: resultRef.id,
+      roomId,
+      computedAt: now,
+      algorithmVersion,
+      rankedMovies,
+    });
+    txn.update(db.collection(COLLECTIONS.rooms).doc(roomId), {
+      status: 'results',
+      updatedAt: now,
+    });
+    return true;
   });
+
+  if (!wrote) return;
 
   await publishToRoom(room.code, ABLY_EVENTS.RESULTS_READY, {
     resultId: resultRef.id,

@@ -211,6 +211,14 @@ export default function SubmitPage(props: {
     );
   }
 
+  if (!room) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6 text-center">
+        <p className="text-sm text-[#888]">Room not found</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <input

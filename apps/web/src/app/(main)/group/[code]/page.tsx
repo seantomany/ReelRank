@@ -155,7 +155,7 @@ export default function LobbyPage(props: {
         </p>
         <div>
           {members.map((member) => (
-            <div key={member.id} className="flex items-center gap-2 py-2">
+            <div key={member.userId} className="flex items-center gap-2 py-2">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#111]">
                 <span className="text-[10px] text-[#888]">
                   {memberName(member).charAt(0).toUpperCase()}

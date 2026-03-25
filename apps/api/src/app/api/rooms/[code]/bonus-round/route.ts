@@ -88,19 +88,19 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     throw new ApiError(400, 'Movie is not part of this bonus round', requestId);
   }
 
-  const votes = bonusData.votes ?? {};
-  votes[user.id] = movieId;
+  await bonusDoc.ref.update({ [`votes.${user.id}`]: movieId });
 
-  await bonusDoc.ref.update({ votes });
-
-  const membersSnap = await roomRef.collection('members').count().get();
-  const memberCount = membersSnap.data().count;
-  const voteCount = Object.keys(votes).length;
+  const [updatedSnap, membersCountSnap] = await Promise.all([
+    bonusDoc.ref.get(),
+    roomRef.collection('members').count().get(),
+  ]);
+  const updatedVotes = (updatedSnap.data()?.votes ?? {}) as Record<string, number>;
+  const memberCount = membersCountSnap.data().count;
+  const voteCount = Object.keys(updatedVotes).length;
 
   if (voteCount >= memberCount) {
-    // Tally votes
     const tally = new Map<number, number>();
-    for (const vid of Object.values(votes) as number[]) {
+    for (const vid of Object.values(updatedVotes)) {
       tally.set(vid, (tally.get(vid) ?? 0) + 1);
     }
 

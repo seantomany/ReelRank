@@ -49,6 +49,14 @@ export default function GroupSwipePage(props: {
           router.push(`/group/${code}/results`);
           return;
         }
+        if (res.data.status === "lobby") {
+          router.push(`/group/${code}`);
+          return;
+        }
+        if (res.data.status === "submitting") {
+          router.push(`/group/${code}/submit`);
+          return;
+        }
         const list = (res.data.movies ?? [])
           .map((rm) => rm.movie)
           .filter(Boolean) as Movie[];
@@ -162,7 +170,10 @@ export default function GroupSwipePage(props: {
 
       if (res.error) {
         toast.error(res.error);
-      } else if (res.data?.allDone) {
+        setSwiping(false);
+        return;
+      }
+      if (res.data?.allDone) {
         router.push(`/group/${code}/results`);
         return;
       }
@@ -285,10 +296,10 @@ function WaitingForOthers({
   currentUserId?: string;
   router: ReturnType<typeof import("next/navigation").useRouter>;
 }) {
-  const selfIncluded = currentUserId ? doneMembers.has(currentUserId) : false;
+  const selfIncluded = currentUserId ? doneMembers.has(currentUserId) : true;
   const doneCount = selfIncluded
     ? doneMembers.size
-    : doneMembers.size + 1;
+    : Math.min(doneMembers.size + 1, totalMembers);
   const [loadingResults, setLoadingResults] = useState(false);
   const [resultError, setResultError] = useState<string | null>(null);
 

@@ -28,10 +28,12 @@ function MovieCard({ searchQuery }: { searchQuery: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.ai.movieSearch(searchQuery).then((res) => {
-      if (!cancelled && res.data) setMovie(res.data);
-      setLoading(false);
-    });
+    api.ai.movieSearch(searchQuery)
+      .then((res) => {
+        if (!cancelled && res.data) setMovie(res.data);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [searchQuery]);
 

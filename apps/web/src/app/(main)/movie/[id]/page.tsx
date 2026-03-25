@@ -44,17 +44,17 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
   async function toggleWatchlist() {
     if (toggling) return;
     setToggling(true);
-    const res = await api.solo.swipe(Number(id), "right");
+    const isCurrentlyOnWatchlist = status?.swipeDirection === "right";
+    const direction = isCurrentlyOnWatchlist ? "left" : "right";
+    const res = await api.solo.swipe(Number(id), direction);
     if (res.error) {
       toast.error(res.error);
     } else {
       setStatus((prev) => ({
         ...prev,
-        swipeDirection: prev?.swipeDirection === "right" ? undefined : "right",
+        swipeDirection: isCurrentlyOnWatchlist ? undefined : "right",
       }));
-      toast.success(
-        status?.swipeDirection === "right" ? "Removed from watchlist" : "Added to watchlist"
-      );
+      toast.success(isCurrentlyOnWatchlist ? "Removed from watchlist" : "Added to watchlist");
     }
     setToggling(false);
   }
@@ -81,8 +81,8 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
     return (
       <div className="min-h-screen bg-[#000] flex flex-col items-center justify-center gap-4">
         <p className="text-text-secondary text-sm">Movie not found</p>
-        <Link href="/ai" className="text-accent text-sm hover:underline">
-          &larr; Back to AI chat
+        <Link href="/" className="text-accent text-sm hover:underline">
+          &larr; Back to home
         </Link>
       </div>
     );

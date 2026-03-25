@@ -77,6 +77,8 @@ export function LoginForm() {
         return;
       } else if (code === "auth/operation-not-allowed") {
         toast.error(`${label} sign-in is not configured. Use email/password for now.`);
+      } else if (code === "auth/unauthorized-domain") {
+        toast.error(`This domain isn't authorized for ${label} sign-in.`);
       } else {
         const msg = err instanceof Error ? err.message : `${label} sign-in failed`;
         toast.error(msg);

@@ -204,14 +204,17 @@ export default function DiscoverPage() {
       setSwiping(true);
 
       const movie = deck[0];
-      swipedIdsRef.current.add(movie.id);
       const res = await api.solo.swipe(movie.id, direction);
       if (res.error) {
         toast.error(res.error);
-      } else if (direction === "right") {
+        setSwiping(false);
+        return;
+      }
+      if (direction === "right") {
         toast.success(`${movie.title} added to watchlist`);
       }
 
+      swipedIdsRef.current.add(movie.id);
       setDeck((prev) => prev.slice(1));
       setSwiping(false);
     },

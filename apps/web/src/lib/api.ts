@@ -301,10 +301,10 @@ export const api = {
           if (payload === "[DONE]") return;
           try {
             const parsed = JSON.parse(payload);
-            if (parsed.text) onChunk(parsed.text);
             if (parsed.error) throw new Error(parsed.error);
-          } catch {
-            // skip malformed chunks
+            if (parsed.text) onChunk(parsed.text);
+          } catch (e) {
+            if (e instanceof Error && e.message) throw e;
           }
         }
       }

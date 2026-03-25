@@ -164,6 +164,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
   }
 
   const now = new Date();
+  const db = getDb();
   const resultRef = roomRef.collection('results').doc();
   const resultData = {
     id: resultRef.id,
@@ -173,20 +174,30 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     rankedMovies,
   };
 
-  await resultRef.set(resultData);
-
-  await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
-    status: 'results',
-    updatedAt: now,
+  const wrote = await db.runTransaction(async (txn) => {
+    const check = await txn.get(
+      roomRef.collection('results').orderBy('computedAt', 'desc').limit(1)
+    );
+    if (!check.empty) return check.docs[0].data();
+    txn.set(resultRef, resultData);
+    txn.update(db.collection(COLLECTIONS.rooms).doc(roomId), {
+      status: 'results',
+      updatedAt: now,
+    });
+    return null;
   });
 
-  await publishToRoom(room.code, ABLY_EVENTS.RESULTS_READY, {
-    resultId: resultRef.id,
-  });
+  const finalResult = wrote ?? resultData;
+
+  if (!wrote) {
+    await publishToRoom(room.code, ABLY_EVENTS.RESULTS_READY, {
+      resultId: resultRef.id,
+    });
+  }
 
   return NextResponse.json({
     data: {
-      ...resultData,
+      ...finalResult,
       memberVotes,
       submissions,
       memberStats,

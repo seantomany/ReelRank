@@ -55,6 +55,7 @@ export default function HomePage() {
       if (trendingRes.data) setTrending(trendingRes.data.movies);
       if (trendingRes.error) toast.error(trendingRes.error);
       if (genresRes.data) setGenres(genresRes.data);
+      if (genresRes.error) toast.error(genresRes.error);
       if (watchlistRes.data) setWatchlist(watchlistRes.data);
       if (watchedRes.data) setWatched(watchedRes.data);
       if (suggestionsRes.data) setSuggestions(suggestionsRes.data);

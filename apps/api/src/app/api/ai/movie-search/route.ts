@@ -25,5 +25,6 @@ export const GET = withAuth(async (req: NextRequest, { requestId }) => {
     }
   }
 
-  return NextResponse.json({ data: movies[0], requestId });
+  const best = movies.find(m => m.title.toLowerCase() === title.toLowerCase()) ?? movies[0];
+  return NextResponse.json({ data: best, requestId });
 });
