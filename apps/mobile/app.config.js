@@ -40,6 +40,6 @@ export default {
         projectId: '1ab5830b-ef5e-4dbe-8808-a269399e6155',
       },
     },
-    plugins: ['expo-dev-client'],
+    plugins: ['expo-dev-client', 'expo-font'],
   },
 };
