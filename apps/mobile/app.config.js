@@ -40,15 +40,6 @@ export default {
         projectId: '1ab5830b-ef5e-4dbe-8808-a269399e6155',
       },
     },
-    plugins: [
-      'expo-font',
-      [
-        'expo-notifications',
-        {
-          icon: './assets/icon.png',
-          color: '#E50914',
-        },
-      ],
-    ],
+    plugins: ['expo-font'],
   },
 };
