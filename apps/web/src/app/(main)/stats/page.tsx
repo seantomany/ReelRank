@@ -188,7 +188,7 @@ export default function StatsPage() {
         </Section>
       )}
 
-      {/* 6. Rating Distribution (Beli scores) */}
+      {/* 6. Rating Distribution */}
       {ratingDistribution.length > 0 && ratingDistribution.some((b) => b.count > 0) && (
         <Section title="Rating Distribution">
           <div className="h-[160px]">
@@ -204,7 +204,7 @@ export default function StatsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-[10px] text-[#888] mt-1 text-center">Beli score buckets</p>
+          <p className="text-[10px] text-[#888] mt-1 text-center">Score distribution</p>
         </Section>
       )}
 
@@ -365,9 +365,9 @@ export default function StatsPage() {
         </Section>
       )}
 
-      {/* Top Genres by Beli Score */}
+      {/* Top Genres by Score */}
       {topGenresByScore.length > 0 && (
-        <Section title="Top Genres by Beli Score">
+        <Section title="Top Genres by Score">
           <div className="space-y-2">
             {topGenresByScore.slice(0, 6).map((g) => (
               <div key={g.genreId} className="flex items-center gap-3">

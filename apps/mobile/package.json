@@ -7,7 +7,9 @@
     "dev": "expo start",
     "build": "echo 'Mobile build via EAS'",
     "test": "vitest run",
-    "clean": "rm -rf .expo node_modules"
+    "clean": "rm -rf .expo node_modules",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.2",
@@ -20,8 +22,8 @@
     "@reelrank/shared": "workspace:*",
     "ably": "^2.4.1",
     "expo": "~52.0.0",
+    "expo-clipboard": "~7.0.1",
     "expo-constants": "~17.0.0",
-    "expo-dev-client": "^5.0.20",
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.0",
     "expo-image": "~2.0.0",

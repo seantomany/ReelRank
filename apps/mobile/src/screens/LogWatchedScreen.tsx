@@ -41,7 +41,6 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
       const res = await api.solo.logWatched({
         movieId,
         rating,
-        watchedAt: new Date().toISOString().split('T')[0],
         venue,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       }, token);

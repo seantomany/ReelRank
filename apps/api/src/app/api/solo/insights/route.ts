@@ -206,7 +206,7 @@ export const GET = withAuth(async (_req, { user, requestId }) => {
     .map(([venue, count]) => ({ venue, count }))
     .sort((a, b) => b.count - a.count);
 
-  // --- Top genres by Beli score ---
+  // --- Top genres by score ---
   const topGenresByScore: { genreId: number; genreName: string; avgScore: number }[] = [];
   if (rankedListDoc.exists) {
     const rankedIds: number[] = rankedListDoc.data()!.movieIds ?? [];

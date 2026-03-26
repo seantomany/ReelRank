@@ -1,7 +1,8 @@
-import React, { useEffect, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Button, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../context/AuthContext';
 import { useRoom } from '../hooks/useRoom';
 import { api } from '../utils/api';
@@ -9,7 +10,6 @@ import { MemberList } from '../components/MemberList';
 import { colors, spacing, borderRadius } from '../theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { useState } from 'react';
 
 interface LobbyScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -82,11 +82,21 @@ export function LobbyScreen({ navigation, route }: LobbyScreenProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.codeSection}>
+      <TouchableOpacity
+        style={styles.codeSection}
+        onPress={async () => {
+          await Clipboard.setStringAsync(room.code);
+          setSnackbar({ visible: true, message: 'Room code copied!' });
+        }}
+        activeOpacity={0.7}
+      >
         <Text style={styles.codeLabel}>Room Code</Text>
-        <Text style={styles.code}>{room.code}</Text>
-        <Text style={styles.codeHint}>Share this code with friends</Text>
-      </View>
+        <View style={styles.codeRow}>
+          <Text style={styles.code}>{room.code}</Text>
+          <Ionicons name="copy-outline" size={22} color={colors.textSecondary} />
+        </View>
+        <Text style={styles.codeHint}>Tap to copy</Text>
+      </TouchableOpacity>
 
       <View style={styles.membersSection}>
         <Text style={styles.sectionTitle}>
@@ -103,9 +113,10 @@ export function LobbyScreen({ navigation, route }: LobbyScreenProps) {
             loading={starting}
             disabled={starting || members.length < 1}
             style={styles.startButton}
+            contentStyle={{ paddingVertical: 4 }}
             labelStyle={styles.startLabel}
           >
-            Start Submitting Movies
+            Start
           </Button>
         ) : (
           <View style={styles.waitingContainer}>
@@ -154,8 +165,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
   },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   code: {
-    fontSize: 48,
+    fontSize: 42,
     fontWeight: 'bold',
     color: colors.accent,
     fontFamily: 'monospace',

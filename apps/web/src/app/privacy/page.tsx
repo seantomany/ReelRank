@@ -66,7 +66,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-2 mt-2">
               <li>To provide and maintain the App&apos;s core features (rankings, group mode, watchlist).</li>
               <li>To authenticate your account and keep it secure.</li>
-              <li>To compute and display your Beli ranking scores.</li>
+              <li>To compute and display your ranking scores.</li>
               <li>To facilitate real-time group sessions.</li>
               <li>To improve and optimize the App experience.</li>
             </ul>

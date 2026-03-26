@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { Text, Card, Chip, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,9 +30,16 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   }, []);
 
   const loadData = async () => {
@@ -57,7 +65,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Movie Fan';
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+    >
       <View style={styles.header}>
         <Text style={styles.greeting}>Hey, {displayName}!</Text>
         <Text style={styles.subtitle}>What are we watching today?</Text>

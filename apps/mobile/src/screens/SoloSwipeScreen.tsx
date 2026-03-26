@@ -17,11 +17,14 @@ interface SoloSwipeScreenProps {
   route: RouteProp<any>;
 }
 
+const seenMovieIds = new Set<number>();
+
 export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const { getIdToken } = useAuth();
   const [movies, setMovies] = useState<Movie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [selectedGenre, setSelectedGenre] = useState<number | null>(
     (route.params as any)?.genreId ?? null
   );
@@ -34,7 +37,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   }, []);
 
   useEffect(() => {
-    loadMovies();
+    setPage(1);
+    loadMovies(1);
   }, [selectedGenre]);
 
   const loadGenres = async () => {
@@ -42,17 +46,20 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     if (res.data) setGenres((res.data as any).slice(0, 6));
   };
 
-  const loadMovies = async () => {
+  const loadMovies = async (p = page) => {
     setLoading(true);
     try {
       let res;
       if (selectedGenre) {
-        res = await api.movies.discover(selectedGenre);
+        res = await api.movies.discover(selectedGenre, p);
       } else {
-        res = await api.movies.trending();
+        res = await api.movies.trending(p);
       }
       if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
-        setMovies((res.data as any).movies);
+        const fresh = ((res.data as any).movies as Movie[]).filter(
+          (m) => !seenMovieIds.has(m.id)
+        );
+        setMovies(fresh);
         setCurrentIndex(0);
       }
     } catch (error) {
@@ -63,8 +70,15 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     }
   };
 
+  const handleLoadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    loadMovies(next);
+  };
+
   const handleSwipe = useCallback(async (movie: Movie, direction: SwipeDirection) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    seenMovieIds.add(movie.id);
     setCurrentIndex((prev) => prev + 1);
     try {
       const token = await getIdToken();
@@ -81,8 +95,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
         <Chip
           selected={!selectedGenre}
           onPress={() => setSelectedGenre(null)}
-          style={styles.genreChip}
-          textStyle={styles.chipText}
+          style={[styles.genreChip, !selectedGenre && styles.genreChipSelected]}
+          textStyle={[styles.chipText, !selectedGenre && styles.chipTextSelected]}
         >
           Trending
         </Chip>
@@ -91,8 +105,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             key={g.id}
             selected={selectedGenre === g.id}
             onPress={() => setSelectedGenre(g.id)}
-            style={styles.genreChip}
-            textStyle={styles.chipText}
+            style={[styles.genreChip, selectedGenre === g.id && styles.genreChipSelected]}
+            textStyle={[styles.chipText, selectedGenre === g.id && styles.chipTextSelected]}
           >
             {g.name}
           </Chip>
@@ -106,7 +120,9 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
           <View style={styles.emptyState}>
             <Ionicons name="film-outline" size={64} color={colors.textTertiary} />
             <Text style={styles.emptyText}>No more movies!</Text>
-            <Button mode="contained" onPress={loadMovies}>Load More</Button>
+            <Button mode="contained" onPress={handleLoadMore} style={{ marginTop: spacing.md }}>
+              Load More
+            </Button>
           </View>
         ) : (
           <SwipeDeck
@@ -125,8 +141,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             mode="outlined"
             onPress={() => deckRef.current?.swipeLeft()}
             style={[styles.actionButton, { borderColor: colors.pass }]}
-            labelStyle={{ color: colors.pass }}
-            icon={() => <Ionicons name="close" size={24} color={colors.pass} />}
+            labelStyle={{ color: colors.pass, fontSize: 16 }}
+            icon={() => <Ionicons name="close" size={28} color={colors.pass} />}
           >
             Pass
           </Button>
@@ -134,8 +150,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             mode="outlined"
             onPress={() => deckRef.current?.swipeRight()}
             style={[styles.actionButton, { borderColor: colors.want }]}
-            labelStyle={{ color: colors.want }}
-            icon={() => <Ionicons name="heart" size={24} color={colors.want} />}
+            labelStyle={{ color: colors.want, fontSize: 16 }}
+            icon={() => <Ionicons name="heart" size={28} color={colors.want} />}
           >
             Want
           </Button>
@@ -163,14 +179,24 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   genreChip: {
     backgroundColor: colors.surfaceVariant,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  genreChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
-    color: colors.text,
+    color: colors.textSecondary,
     fontSize: 12,
+  },
+  chipTextSelected: {
+    color: colors.onPrimary,
   },
   deckContainer: {
     flex: 1,
@@ -190,9 +216,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xl,
     paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
   },
   actionButton: {
     borderWidth: 2,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 999,
   },
 });

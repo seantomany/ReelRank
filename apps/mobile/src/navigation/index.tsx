@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -21,6 +21,7 @@ import { LobbyScreen } from '../screens/LobbyScreen';
 import { SubmitMoviesScreen } from '../screens/SubmitMoviesScreen';
 import { GroupSwipeScreen } from '../screens/GroupSwipeScreen';
 import { GroupResultsScreen } from '../screens/GroupResultsScreen';
+import { OnboardingScreen, hasSeenOnboarding } from '../screens/OnboardingScreen';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -66,13 +67,22 @@ function MainTabs() {
 
 export function AppNavigator() {
   const { user, loading } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    hasSeenOnboarding().then((seen) => setShowOnboarding(!seen));
+  }, []);
+
+  if (loading || showOnboarding === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
+  }
+
+  if (!user && showOnboarding) {
+    return <OnboardingScreen onComplete={() => setShowOnboarding(false)} />;
   }
 
   return (
@@ -91,17 +101,17 @@ export function AppNavigator() {
               component={MainTabs}
               options={{ headerShown: false }}
             />
-            <Stack.Screen name="SoloSwipe" component={SoloSwipeScreen} options={{ title: 'Discover' }} />
-            <Stack.Screen name="Search" component={SearchScreen} options={{ title: 'Search Movies' }} />
-            <Stack.Screen name="ThisOrThat" component={ThisOrThatScreen} options={{ title: 'This or That' }} />
-            <Stack.Screen name="MovieDetail" component={MovieDetailScreen} options={{ title: 'Movie Details' }} />
-            <Stack.Screen name="LogWatched" component={LogWatchedScreen} options={{ title: 'Log Watched' }} />
-            <Stack.Screen name="CreateRoom" component={CreateRoomScreen} options={{ title: 'Create Room' }} />
-            <Stack.Screen name="JoinRoom" component={JoinRoomScreen} options={{ title: 'Join Room' }} />
-            <Stack.Screen name="Lobby" component={LobbyScreen} options={{ title: 'Lobby' }} />
-            <Stack.Screen name="SubmitMovies" component={SubmitMoviesScreen} options={{ title: 'Submit Movies' }} />
-            <Stack.Screen name="GroupSwipe" component={GroupSwipeScreen} options={{ title: 'Group Swipe' }} />
-            <Stack.Screen name="GroupResults" component={GroupResultsScreen} options={{ title: 'Results' }} />
+            <Stack.Screen name="SoloSwipe" component={SoloSwipeScreen} options={{ title: 'Discover', headerBackTitle: 'Home' }} />
+            <Stack.Screen name="Search" component={SearchScreen} options={{ title: 'Search Movies', headerBackTitle: 'Home' }} />
+            <Stack.Screen name="ThisOrThat" component={ThisOrThatScreen} options={{ title: 'This or That', headerBackTitle: 'Home' }} />
+            <Stack.Screen name="MovieDetail" component={MovieDetailScreen} options={{ title: 'Movie Details', headerBackTitle: 'Back' }} />
+            <Stack.Screen name="LogWatched" component={LogWatchedScreen} options={{ title: 'Log Watched', headerBackTitle: 'Back' }} />
+            <Stack.Screen name="CreateRoom" component={CreateRoomScreen} options={{ title: 'Create Room', headerBackTitle: 'Group' }} />
+            <Stack.Screen name="JoinRoom" component={JoinRoomScreen} options={{ title: 'Join Room', headerBackTitle: 'Group' }} />
+            <Stack.Screen name="Lobby" component={LobbyScreen} options={{ title: 'Lobby', headerBackTitle: 'Group' }} />
+            <Stack.Screen name="SubmitMovies" component={SubmitMoviesScreen} options={{ title: 'Submit Movies', headerBackTitle: 'Lobby' }} />
+            <Stack.Screen name="GroupSwipe" component={GroupSwipeScreen} options={{ title: 'Group Swipe', headerBackTitle: 'Back' }} />
+            <Stack.Screen name="GroupResults" component={GroupResultsScreen} options={{ title: 'Results', headerBackTitle: 'Back' }} />
           </>
         )}
       </Stack.Navigator>

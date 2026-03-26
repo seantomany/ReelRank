@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Text, Avatar, Button, SegmentedButtons, Snackbar, ActivityIndicator } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { OptimizedImage } from '../components/OptimizedImage';
@@ -18,28 +19,20 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [tab, setTab] = useState('rankings');
   const [tabData, setTabData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  useEffect(() => {
-    loadTabData();
-  }, [tab]);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const token = await getIdToken();
       const res = await api.solo.stats(token);
       if (res.data) setStats(res.data);
     } catch (error) {
       console.error('Failed to load stats:', error);
-      setSnackbar({ visible: true, message: 'Failed to load profile stats' });
     }
-  };
+  }, [getIdToken]);
 
-  const loadTabData = async () => {
+  const loadTabData = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getIdToken();
@@ -64,14 +57,32 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab, getIdToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+      loadTabData();
+    }, [loadStats, loadTabData])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadStats(), loadTabData()]);
+    setRefreshing(false);
+  }, [loadStats, loadTabData]);
 
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         <View style={styles.header}>
           {user?.photoURL ? (
             <Avatar.Image size={80} source={{ uri: user.photoURL }} />
@@ -85,19 +96,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         {stats && (
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.totalSwipes}</Text>
+              <Text style={styles.statValue}>{stats.totalSwipes ?? 0}</Text>
               <Text style={styles.statLabel}>Swipes</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.moviesWatched}</Text>
+              <Text style={styles.statValue}>{stats.moviesWatched ?? 0}</Text>
               <Text style={styles.statLabel}>Watched</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.pairwiseChoices}</Text>
+              <Text style={styles.statValue}>{stats.pairwiseChoices ?? 0}</Text>
               <Text style={styles.statLabel}>Compared</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.winRate}%</Text>
+              <Text style={styles.statValue}>{stats.winRate ?? 0}%</Text>
               <Text style={styles.statLabel}>Like Rate</Text>
             </View>
           </View>
@@ -105,7 +116,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         <SegmentedButtons
           value={tab}
-          onValueChange={setTab}
+          onValueChange={(v) => { setTab(v); }}
           buttons={[
             { value: 'rankings', label: 'Rankings' },
             { value: 'watchlist', label: 'Watchlist' },
@@ -116,45 +127,40 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {loading ? (
           <ActivityIndicator style={{ paddingVertical: spacing.xl }} color={colors.primary} />
+        ) : tabData.length === 0 ? (
+          <Text style={styles.emptyText}>
+            {tab === 'rankings' ? 'Start swiping to build your rankings!' :
+              tab === 'watchlist' ? 'Swipe right on movies to add them here.' :
+                'Log movies you\'ve watched to track them here.'}
+          </Text>
         ) : (
-          <FlatList
-            data={tabData}
-            scrollEnabled={false}
-            keyExtractor={(item, index) => `${item.movieId ?? item.id ?? index}`}
-            renderItem={({ item, index }) => {
-              const movie = item.movie ?? item;
-              return (
-                <TouchableOpacity
-                  style={styles.listRow}
-                  onPress={() => navigation.navigate('MovieDetail', { movieId: movie.id ?? item.movieId })}
-                >
-                  {tab === 'rankings' && (
-                    <Text style={styles.rank}>#{index + 1}</Text>
+          tabData.map((item, index) => {
+            const movie = item.movie ?? item;
+            return (
+              <TouchableOpacity
+                key={`${item.movieId ?? item.id ?? index}`}
+                style={styles.listRow}
+                onPress={() => navigation.navigate('MovieDetail', { movieId: movie.id ?? item.movieId })}
+              >
+                {tab === 'rankings' && (
+                  <Text style={styles.rank}>#{index + 1}</Text>
+                )}
+                <OptimizedImage
+                  uri={getPosterUrl(movie.posterPath, 'small')}
+                  style={styles.poster}
+                />
+                <View style={styles.listInfo}>
+                  <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
+                  {tab === 'rankings' && item.eloScore && (
+                    <Text style={styles.listMeta}>Score: {Math.round(item.eloScore)}</Text>
                   )}
-                  <OptimizedImage
-                    uri={getPosterUrl(movie.posterPath, 'small')}
-                    style={styles.poster}
-                  />
-                  <View style={styles.listInfo}>
-                    <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
-                    {tab === 'rankings' && item.eloScore && (
-                      <Text style={styles.listMeta}>ELO: {Math.round(item.eloScore)}</Text>
-                    )}
-                    {tab === 'watched' && item.rating && (
-                      <Text style={styles.listMeta}>{item.rating}/10 · {item.venue}</Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>
-                {tab === 'rankings' ? 'Start swiping to build your rankings!' :
-                  tab === 'watchlist' ? 'Swipe right on movies to add them here.' :
-                    'Log movies you\'ve watched to track them here.'}
-              </Text>
-            }
-          />
+                  {tab === 'watched' && item.rating && (
+                    <Text style={styles.listMeta}>{item.rating}/10 · {item.venue}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
 
         <Button

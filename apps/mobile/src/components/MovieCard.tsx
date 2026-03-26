@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { OptimizedImage } from './OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
@@ -15,11 +15,11 @@ interface MovieCardProps {
   onPress?: () => void;
 }
 
-export function MovieCard({ movie }: MovieCardProps) {
+export function MovieCard({ movie, onPress }: MovieCardProps) {
   const year = movie.releaseDate?.split('-')[0] ?? '';
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
       <OptimizedImage
         uri={getPosterUrl(movie.posterPath, 'large')}
         style={styles.poster}
@@ -37,7 +37,7 @@ export function MovieCard({ movie }: MovieCardProps) {
           {year ? <Text style={styles.year}>{year}</Text> : null}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

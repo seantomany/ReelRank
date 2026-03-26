@@ -62,7 +62,7 @@ export const TrendingPageSchema = z.object({
 export const WatchedMovieInputSchema = z.object({
   movieId: z.number().int().positive(),
   rating: z.number().min(1).max(10),
-  watchedAt: z.string(),
+  watchedAt: z.string().optional(),
   venue: z.enum(['Theater', 'Home', "Friend's", 'Outdoor', 'Other']),
   notes: z.string().max(500).optional(),
 });

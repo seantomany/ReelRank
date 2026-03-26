@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { subscribeToRoom, unsubscribeFromRoom, RoomEventHandlers } from '../config/ably';
 import type { Room } from '@reelrank/shared';
+
+const POLL_INTERVAL = 4000;
 
 interface UseRoomReturn {
   room: Room | null;
@@ -17,6 +20,7 @@ export function useRoom(roomCode: string): UseRoomReturn {
   const [error, setError] = useState<string | null>(null);
   const { getIdToken } = useAuth();
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -79,10 +83,19 @@ export function useRoom(roomCode: string): UseRoomReturn {
 
     subscribeToRoom(roomCode, handlers, getIdToken);
 
+    pollRef.current = setInterval(() => {
+      if (!cancelled && AppState.currentState === 'active') {
+        refresh();
+      }
+    }, POLL_INTERVAL);
+
     return () => {
       cancelled = true;
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
+      }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
       }
       unsubscribeFromRoom(roomCode);
     };

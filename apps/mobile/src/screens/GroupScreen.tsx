@@ -58,17 +58,19 @@ export function GroupScreen({ navigation }: GroupScreenProps) {
           mode="contained"
           onPress={() => navigation.navigate('CreateRoom')}
           style={styles.button}
+          contentStyle={{ paddingVertical: 4 }}
           icon={() => <Ionicons name="add-circle" size={20} color={colors.onPrimary} />}
         >
-          Create Room
+          Create
         </Button>
         <Button
           mode="outlined"
           onPress={() => navigation.navigate('JoinRoom')}
           style={styles.button}
+          contentStyle={{ paddingVertical: 4 }}
           icon={() => <Ionicons name="enter" size={20} color={colors.primary} />}
         >
-          Join Room
+          Join
         </Button>
       </View>
 

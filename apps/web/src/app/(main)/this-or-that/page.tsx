@@ -10,42 +10,58 @@ import { toast } from "sonner";
 import type { SoloRanking } from "@reelrank/shared";
 import { getPosterUrl } from "@reelrank/shared";
 
+const seenPairKeys = new Set<string>();
+
+function pairKey(idA: number, idB: number): string {
+  return idA < idB ? `${idA}:${idB}` : `${idB}:${idA}`;
+}
+
 function pickAdjacentPair(
   rankings: SoloRanking[],
-  lastPair: [number, number] | null
+  _lastPair: [number, number] | null
 ): [SoloRanking, SoloRanking] | null {
   if (rankings.length < 2) return null;
 
   const sorted = [...rankings].sort((a, b) => a.rank - b.rank);
-  let attempts = 0;
+  const totalPossible = (sorted.length * (sorted.length - 1)) / 2;
+  if (seenPairKeys.size >= totalPossible) {
+    seenPairKeys.clear();
+  }
 
-  while (attempts < 20) {
+  let attempts = 0;
+  while (attempts < 40) {
     const idx = Math.floor(Math.random() * (sorted.length - 1));
     const a = sorted[idx];
     const b = sorted[idx + 1];
-    const ids: [number, number] = [a.movieId, b.movieId].sort(
-      (x, y) => x - y
-    ) as [number, number];
+    const key = pairKey(a.movieId, b.movieId);
 
-    if (
-      !lastPair ||
-      ids[0] !== lastPair[0] ||
-      ids[1] !== lastPair[1] ||
-      rankings.length === 2
-    ) {
+    if (!seenPairKeys.has(key) || rankings.length === 2) {
+      seenPairKeys.add(key);
       return Math.random() > 0.5 ? [a, b] : [b, a];
     }
     attempts++;
   }
 
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const key = pairKey(sorted[i].movieId, sorted[j].movieId);
+      if (!seenPairKeys.has(key)) {
+        seenPairKeys.add(key);
+        return Math.random() > 0.5 ? [sorted[i], sorted[j]] : [sorted[j], sorted[i]];
+      }
+    }
+  }
+
+  seenPairKeys.clear();
   const a = sorted[0];
-  const b = sorted[sorted.length - 1];
+  const b = sorted[1];
+  seenPairKeys.add(pairKey(a.movieId, b.movieId));
   return Math.random() > 0.5 ? [a, b] : [b, a];
 }
 
 function getSessionLimit(count: number): number {
   if (count <= 2) return count - 1;
-  return Math.min(10, Math.max(3, count - 1));
+  return Math.min(5, Math.max(3, count - 1));
 }
 
 export default function RefineRankingsPage() {

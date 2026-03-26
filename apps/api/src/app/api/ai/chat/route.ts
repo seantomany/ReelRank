@@ -59,7 +59,7 @@ async function gatherUserContext(userId: string): Promise<string> {
       const m = movieMap.get(id);
       const score = total <= 1 ? 10 : Math.round(((total - 1 - i) / (total - 1)) * 100) / 10;
       const genres = m?.genreIds.map(g => GENRE_NAMES[g]).filter(Boolean).join(', ') ?? '';
-      return `${i + 1}. ${m?.title ?? `Movie #${id}`} (${m?.releaseDate?.slice(0, 4) ?? '?'}) — Beli ${score.toFixed(1)} — ${genres}`;
+      return `${i + 1}. ${m?.title ?? `Movie #${id}`} (${m?.releaseDate?.slice(0, 4) ?? '?'}) — Score ${score.toFixed(1)} — ${genres}`;
     });
     sections.push(`TOP RANKED MOVIES (${total} total):\n${lines.join('\n')}`);
   }

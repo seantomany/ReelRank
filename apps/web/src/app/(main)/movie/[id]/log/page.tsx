@@ -24,7 +24,8 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
 
   const [rating, setRating] = useState(7);
   const [venue, setVenue] = useState<(typeof VENUES)[number]>("Home");
-  const [watchedAt, setWatchedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [watchedAt, setWatchedAt] = useState<string>("");
+  const [showDate, setShowDate] = useState(false);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
     const res = await api.solo.logWatched({
       movieId: Number(id),
       rating,
-      watchedAt,
+      ...(watchedAt ? { watchedAt } : {}),
       venue,
       notes: notes.trim() || undefined,
     });
@@ -139,16 +140,31 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
             </div>
           </div>
 
-          {/* Date */}
+          {/* Date (optional) */}
           <div>
-            <label className="text-xs uppercase tracking-wider text-[#888]">When</label>
-            <input
-              type="date"
-              value={watchedAt}
-              onChange={(e) => setWatchedAt(e.target.value)}
-              className="mt-2 block w-full bg-[#111] rounded-md text-sm text-[#e8e8e8] px-3 py-2 min-h-[44px] border-0 outline-none"
-              style={{ colorScheme: "dark" }}
-            />
+            <div className="flex items-center justify-between">
+              <label className="text-xs uppercase tracking-wider text-[#888]">When</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDate(!showDate);
+                  if (!showDate && !watchedAt) setWatchedAt(new Date().toISOString().slice(0, 10));
+                  if (showDate) setWatchedAt("");
+                }}
+                className="text-xs text-[#ff2d55] cursor-pointer"
+              >
+                {showDate ? "Skip date" : "Add date"}
+              </button>
+            </div>
+            {showDate && (
+              <input
+                type="date"
+                value={watchedAt}
+                onChange={(e) => setWatchedAt(e.target.value)}
+                className="mt-2 block w-full bg-[#111] rounded-md text-sm text-[#e8e8e8] px-3 py-2 min-h-[44px] border-0 outline-none"
+                style={{ colorScheme: "dark" }}
+              />
+            )}
           </div>
 
           {/* Notes */}
