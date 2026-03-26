@@ -50,3 +50,4 @@ yarn-error.log*
 .env.vercel
 git-commit.sh
 git-push.py
+apps/mobile/build-*.ipa

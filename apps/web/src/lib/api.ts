@@ -14,7 +14,12 @@ const authReadyPromise = new Promise<void>((resolve) => {
     resolve();
     return;
   }
+  const timeout = setTimeout(() => {
+    authReady = true;
+    resolve();
+  }, 5000);
   const unsubscribe = onAuthStateChanged(auth, () => {
+    clearTimeout(timeout);
     authReady = true;
     unsubscribe();
     resolve();

@@ -86,7 +86,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();
 
-  const topGenres = insights?.genreBreakdown?.slice(0, 3) ?? [];
+  const topGenres = Array.isArray(insights?.genreBreakdown) ? insights.genreBreakdown.slice(0, 3) : [];
   const personality = insights?.moviePersonality;
 
   const getSortedData = () => {
@@ -254,7 +254,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           </Text>
         ) : (
           sortedData.map((item, index) => {
+            if (!item) return null;
             const movie = item?.movie ?? item;
+            if (!movie || !movie.id) return null;
             return (
               <TouchableOpacity
                 key={`${item.movieId ?? item.id ?? index}`}
@@ -265,16 +267,16 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                   <Text style={styles.rank}>#{index + 1}</Text>
                 )}
                 <OptimizedImage
-                  uri={getPosterUrl(movie.posterPath, 'small')}
+                  uri={getPosterUrl(movie.posterPath ?? '', 'small')}
                   style={styles.poster}
                 />
                 <View style={styles.listInfo}>
-                  <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
-                  {tab === 'rankings' && item.eloScore && (
+                  <Text style={styles.movieTitle} numberOfLines={1}>{movie.title ?? 'Unknown'}</Text>
+                  {tab === 'rankings' && item.eloScore != null && (
                     <Text style={styles.listMeta}>Score: {Math.round(item.eloScore)}</Text>
                   )}
-                  {tab === 'watched' && item.rating && (
-                    <Text style={styles.listMeta}>{item.rating}/10 · {item.venue}</Text>
+                  {tab === 'watched' && item.rating != null && (
+                    <Text style={styles.listMeta}>{item.rating}/10 · {item.venue ?? ''}</Text>
                   )}
                 </View>
                 {tab === 'watchlist' && (

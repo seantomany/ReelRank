@@ -39,28 +39,29 @@ export default function HomePage() {
     let mounted = true;
 
     async function load() {
-      const [statsRes, trendingRes, genresRes, watchlistRes, watchedRes, suggestionsRes] = await Promise.all([
-        api.solo.stats(),
-        api.movies.trending(),
-        api.movies.genres(),
-        api.solo.lists("want"),
-        api.solo.watched(),
-        api.solo.suggestions(),
-      ]);
+      try {
+        const [statsRes, trendingRes, genresRes, watchlistRes, watchedRes, suggestionsRes] = await Promise.all([
+          api.solo.stats(),
+          api.movies.trending(),
+          api.movies.genres(),
+          api.solo.lists("want"),
+          api.solo.watched(),
+          api.solo.suggestions(),
+        ]);
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (statsRes.data) setStats(statsRes.data);
-      if (statsRes.error) toast.error(statsRes.error);
-      if (trendingRes.data) setTrending(trendingRes.data.movies);
-      if (trendingRes.error) toast.error(trendingRes.error);
-      if (genresRes.data) setGenres(genresRes.data);
-      if (genresRes.error) toast.error(genresRes.error);
-      if (watchlistRes.data) setWatchlist(watchlistRes.data);
-      if (watchedRes.data) setWatched(watchedRes.data);
-      if (suggestionsRes.data) setSuggestions(suggestionsRes.data);
-
-      setLoading(false);
+        if (statsRes.data) setStats(statsRes.data);
+        if (trendingRes.data) setTrending(trendingRes.data.movies);
+        if (genresRes.data) setGenres(genresRes.data);
+        if (watchlistRes.data) setWatchlist(watchlistRes.data);
+        if (watchedRes.data) setWatched(watchedRes.data);
+        if (suggestionsRes.data) setSuggestions(suggestionsRes.data);
+      } catch (err) {
+        console.error("Failed to load home data:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
     load();

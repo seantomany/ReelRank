@@ -6,9 +6,10 @@ import { getPosterUrl } from '@reelrank/shared';
 import { colors, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
-const CARD_HEIGHT = CARD_WIDTH * 1.5;
+const maxCardHeight = height - 280;
+const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.5, maxCardHeight);
 
 interface MovieCardProps {
   movie: Movie;
