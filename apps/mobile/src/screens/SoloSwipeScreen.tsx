@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Button, Chip, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, Chip, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { SwipeDeck, SwipeDeckRef } from '../components/SwipeDeck';
 import { SkeletonCard } from '../components/SkeletonCard';
-import { colors, spacing } from '../theme';
+import { colors, spacing, borderRadius } from '../theme';
 import type { Movie, SwipeDirection } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -122,11 +122,11 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
           <SkeletonCard />
         ) : currentIndex >= movies.length ? (
           <View style={styles.emptyState}>
-            <Ionicons name="film-outline" size={64} color={colors.textTertiary} />
+            <Ionicons name="film-outline" size={56} color={colors.textTertiary} />
             <Text style={styles.emptyText}>No more movies!</Text>
-            <Button mode="contained" onPress={handleLoadMore} style={{ marginTop: spacing.md }}>
-              Load More
-            </Button>
+            <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore}>
+              <Text style={styles.loadMoreText}>Load More</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <SwipeDeck
@@ -141,36 +141,30 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
 
       {!loading && currentIndex < movies.length && (
         <View style={styles.buttons}>
-          <Button
-            mode="outlined"
+          <TouchableOpacity
+            style={[styles.circleBtn, styles.passBtnStyle]}
             onPress={() => deckRef.current?.swipeLeft()}
-            style={[styles.actionButton, { borderColor: colors.pass }]}
-            labelStyle={{ color: colors.pass, fontSize: 14 }}
-            icon={() => <Ionicons name="close" size={24} color={colors.pass} />}
+            activeOpacity={0.7}
           >
-            Pass
-          </Button>
-          <Button
-            mode="outlined"
+            <Ionicons name="close" size={28} color={colors.pass} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.circleBtn, styles.watchedBtnStyle]}
             onPress={() => {
               const m = movies[currentIndex];
               if (m) navigation.navigate('LogWatched', { movieId: m.id });
             }}
-            style={[styles.actionButton, { borderColor: colors.success ?? '#34c759' }]}
-            labelStyle={{ color: colors.success ?? '#34c759', fontSize: 14 }}
-            icon={() => <Ionicons name="checkmark-circle" size={24} color={colors.success ?? '#34c759'} />}
+            activeOpacity={0.7}
           >
-            Watched
-          </Button>
-          <Button
-            mode="outlined"
+            <Ionicons name="checkmark" size={24} color={colors.success} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.circleBtn, styles.wantBtnStyle]}
             onPress={() => deckRef.current?.swipeRight()}
-            style={[styles.actionButton, { borderColor: colors.want }]}
-            labelStyle={{ color: colors.want, fontSize: 14 }}
-            icon={() => <Ionicons name="heart" size={24} color={colors.want} />}
+            activeOpacity={0.7}
           >
-            Want
-          </Button>
+            <Ionicons name="heart" size={26} color={colors.want} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -184,6 +178,9 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     </View>
   );
 }
+
+const CIRCLE_SIZE = 56;
+const CIRCLE_SIZE_SM = 46;
 
 const styles = StyleSheet.create({
   container: {
@@ -201,6 +198,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceVariant,
     borderWidth: 1,
     borderColor: 'transparent',
+    height: 32,
   },
   genreChipSelected: {
     backgroundColor: colors.primary,
@@ -225,18 +223,50 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.textSecondary,
-    fontSize: 18,
+    fontSize: 16,
+  },
+  loadMoreBtn: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.round,
+  },
+  loadMoreText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttons: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.xl,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
   },
-  actionButton: {
+  circleBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: 999,
+    borderRadius: borderRadius.round,
+  },
+  passBtnStyle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderColor: colors.pass + '60',
+    backgroundColor: colors.pass + '10',
+  },
+  watchedBtnStyle: {
+    width: CIRCLE_SIZE_SM,
+    height: CIRCLE_SIZE_SM,
+    borderColor: colors.success + '60',
+    backgroundColor: colors.success + '10',
+  },
+  wantBtnStyle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderColor: colors.want + '60',
+    backgroundColor: colors.want + '10',
   },
 });

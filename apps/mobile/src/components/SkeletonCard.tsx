@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,12 +8,11 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { colors, borderRadius } from '../theme';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.85;
-const CARD_HEIGHT = CARD_WIDTH * 1.5;
+import { getCardDimensions } from './MovieCard';
 
 export function SkeletonCard() {
+  const { width, height } = useWindowDimensions();
+  const { cardWidth, cardHeight } = getCardDimensions(width, height);
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
@@ -30,12 +29,11 @@ export function SkeletonCard() {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.card, animatedStyle]}>
+      <Animated.View style={[styles.card, { width: cardWidth, height: cardHeight }, animatedStyle]}>
         <View style={styles.poster} />
         <View style={styles.content}>
           <View style={styles.titleBar} />
           <View style={styles.subtitleBar} />
-          <View style={styles.ratingBar} />
         </View>
       </Animated.View>
     </View>
@@ -48,8 +46,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.surfaceVariant,
     overflow: 'hidden',
@@ -59,24 +55,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   content: {
-    padding: 16,
+    padding: 14,
     gap: 8,
   },
   titleBar: {
-    height: 20,
-    width: '70%',
+    height: 18,
+    width: '65%',
     backgroundColor: colors.border,
     borderRadius: borderRadius.sm,
   },
   subtitleBar: {
-    height: 14,
-    width: '40%',
-    backgroundColor: colors.border,
-    borderRadius: borderRadius.sm,
-  },
-  ratingBar: {
-    height: 14,
-    width: '25%',
+    height: 12,
+    width: '35%',
     backgroundColor: colors.border,
     borderRadius: borderRadius.sm,
   },

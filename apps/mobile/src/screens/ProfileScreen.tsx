@@ -162,15 +162,15 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.totalSwipes ?? 0}</Text>
-              <Text style={styles.statLabel}>Swipes</Text>
+              <Text style={styles.statLabel}>Discovered</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.moviesWatched ?? 0}</Text>
               <Text style={styles.statLabel}>Watched</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.pairwiseChoices ?? 0}</Text>
-              <Text style={styles.statLabel}>Compared</Text>
+              <Text style={styles.statValue}>{stats.uniqueRanked ?? 0}</Text>
+              <Text style={styles.statLabel}>Ranked</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.winRate ?? 0}%</Text>

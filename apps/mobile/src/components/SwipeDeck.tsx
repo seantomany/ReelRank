@@ -11,8 +11,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { MovieCard, CARD_WIDTH } from './MovieCard';
-import { colors } from '../theme';
+import { MovieCard } from './MovieCard';
+import { colors, borderRadius } from '../theme';
 import type { Movie, SwipeDirection } from '@reelrank/shared';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -96,7 +96,7 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
       opacity: interpolate(
         translateX.value,
         [0, SWIPE_THRESHOLD],
-        [0, 1],
+        [0, 0.85],
         Extrapolation.CLAMP
       ),
     }));
@@ -105,7 +105,7 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
       opacity: interpolate(
         translateX.value,
         [-SWIPE_THRESHOLD, 0],
-        [1, 0],
+        [0.85, 0],
         Extrapolation.CLAMP
       ),
     }));
@@ -146,19 +146,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
   },
   wantOverlay: {
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: colors.want,
   },
   passOverlay: {
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: colors.pass,
   },
   overlayText: {
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: 'bold',
+    letterSpacing: 4,
     transform: [{ rotate: '-15deg' }],
   },
 });

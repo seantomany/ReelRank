@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Text, Button, Snackbar, ActivityIndicator } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -158,8 +159,11 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
   if (rankings.length < 2) {
     return (
       <View style={styles.centerContainer}>
+        <Ionicons name={isWatchlist ? 'bookmark-outline' : 'film-outline'} size={48} color={colors.textTertiary} />
         <Text style={styles.emptyText}>
-          Swipe on at least 2 movies in Discover first!
+          {isWatchlist
+            ? 'Add at least 2 movies to your watchlist to start ranking them.'
+            : 'You need at least 2 liked movies.\nSwipe right on some movies first!'}
         </Text>
       </View>
     );

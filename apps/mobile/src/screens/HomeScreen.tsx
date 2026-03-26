@@ -5,10 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Dimensions,
   RefreshControl,
 } from 'react-native';
-import { Text, Card, Chip, Snackbar } from 'react-native-paper';
+import { Text, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -19,8 +18,6 @@ import { colors, spacing, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const { width } = Dimensions.get('window');
-
 interface HomeScreenProps {
   navigation: NativeStackNavigationProp<any>;
 }
@@ -29,9 +26,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const { user, getIdToken } = useAuth();
   const [stats, setStats] = useState({ totalSwipes: 0, moviesWatched: 0, winRate: 0 });
   const [trending, setTrending] = useState<Movie[]>([]);
-  const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
   const [dailyRec, setDailyRec] = useState<{ movie: any; reason: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
+  const [watchlistCount, setWatchlistCount] = useState(0);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -63,22 +60,24 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const loadData = async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, trendingRes, genresRes, recRes, suggestionsRes] = await Promise.all([
+      const [statsRes, trendingRes, recRes, suggestionsRes, watchlistRes] = await Promise.all([
         api.solo.stats(token),
         api.movies.trending(),
-        api.movies.genres(),
         api.solo.dailyRec(token),
         api.solo.suggestions(token),
+        api.solo.lists('want', token),
       ]);
 
       if (statsRes.data) setStats(statsRes.data as any);
       if (trendingRes.data && typeof trendingRes.data === 'object' && 'movies' in trendingRes.data) {
         setTrending((trendingRes.data as any).movies.slice(0, 10));
       }
-      if (genresRes.data) setGenres((genresRes.data as any).slice(0, 8));
       if (recRes.data) setDailyRec(recRes.data as any);
       if (suggestionsRes.data && Array.isArray(suggestionsRes.data)) {
         setSuggestions((suggestionsRes.data as Movie[]).slice(0, 10));
+      }
+      if (watchlistRes.data && Array.isArray(watchlistRes.data)) {
+        setWatchlistCount(watchlistRes.data.length);
       }
     } catch (error) {
       console.error('Failed to load home data:', error);
@@ -87,6 +86,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Movie Fan';
+  const initials = displayName.charAt(0).toUpperCase();
+  const uniqueRanked = (stats as any).uniqueRanked ?? 0;
 
   return (
     <ScrollView
@@ -94,69 +95,129 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Hey, {displayName}!</Text>
-        <Text style={styles.subtitle}>What are we watching today?</Text>
+      {/* Hero */}
+      <View style={styles.hero}>
+        <View style={styles.heroLeft}>
+          {user?.photoURL ? (
+            <OptimizedImage uri={user.photoURL} style={styles.heroAvatar} />
+          ) : (
+            <View style={styles.heroAvatarFallback}>
+              <Text style={styles.heroInitials}>{initials}</Text>
+            </View>
+          )}
+          <View style={styles.heroText}>
+            <Text style={styles.greeting}>Hey, {displayName}</Text>
+            <Text style={styles.subtitle}>What are we watching?</Text>
+          </View>
+        </View>
+        <View style={styles.heroAccent} />
       </View>
 
-      <View style={styles.statsStrip}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{(stats as any).uniqueRanked ?? 0}</Text>
+      {/* Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statPill}>
+          <Text style={styles.statValue}>{uniqueRanked}</Text>
           <Text style={styles.statLabel}>Ranked</Text>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
+        <View style={styles.statPill}>
           <Text style={styles.statValue}>{stats.moviesWatched}</Text>
           <Text style={styles.statLabel}>Watched</Text>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
+        <View style={styles.statPill}>
           <Text style={styles.statValue}>{stats.winRate}%</Text>
-          <Text style={styles.statLabel}>Win Rate</Text>
+          <Text style={styles.statLabel}>Like Rate</Text>
         </View>
       </View>
 
-      <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('SoloSwipe')}>
-          <Ionicons name="swap-horizontal" size={28} color={colors.primary} />
-          <Text style={styles.actionTitle}>Discover</Text>
-          <Text style={styles.actionDesc}>Swipe to rank movies</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AI')}>
-          <Ionicons name="sparkles" size={28} color={colors.accent} />
-          <Text style={styles.actionTitle}>AI</Text>
-          <Text style={styles.actionDesc}>Get recommendations</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('CreateRoom')}>
-          <Ionicons name="people" size={28} color={colors.primaryLight} />
-          <Text style={styles.actionTitle}>Group</Text>
-          <Text style={styles.actionDesc}>Decide with friends</Text>
-        </TouchableOpacity>
-      </View>
-
-      {dailyRec && dailyRec.movie && (
-        <TouchableOpacity
-          style={styles.dailyRecCard}
-          onPress={() => navigation.navigate('MovieDetail', { movieId: dailyRec.movie.id })}
-          activeOpacity={0.8}
-        >
-          <OptimizedImage
-            uri={getPosterUrl(dailyRec.movie.posterPath, 'medium')}
-            style={styles.dailyRecPoster}
+      {/* Contextual CTA */}
+      <TouchableOpacity
+        style={styles.ctaCard}
+        activeOpacity={0.8}
+        onPress={() => {
+          if (watchlistCount >= 2) {
+            navigation.navigate('ThisOrThat', { source: 'watchlist' });
+          } else {
+            navigation.navigate('Discover');
+          }
+        }}
+      >
+        <View style={styles.ctaLeft}>
+          <Ionicons
+            name={watchlistCount >= 2 ? 'swap-horizontal' : 'compass'}
+            size={22}
+            color={colors.primary}
           />
-          <View style={styles.dailyRecInfo}>
-            <Text style={styles.dailyRecLabel}>Today's Pick</Text>
-            <Text style={styles.dailyRecTitle} numberOfLines={2}>{dailyRec.movie.title}</Text>
-            <Text style={styles.dailyRecReason} numberOfLines={2}>{dailyRec.reason}</Text>
+          <View>
+            <Text style={styles.ctaTitle}>
+              {watchlistCount >= 2
+                ? `Rank your ${watchlistCount} watchlist movies`
+                : 'Discover new movies'}
+            </Text>
+            <Text style={styles.ctaSubtitle}>
+              {watchlistCount >= 2
+                ? 'Use This or That to find your favorites'
+                : 'Swipe to build your collection'}
+            </Text>
           </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+      </TouchableOpacity>
+
+      {/* Quick Actions */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pillRow}
+      >
+        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('Discover')}>
+          <Ionicons name="compass-outline" size={16} color={colors.primary} />
+          <Text style={styles.pillLabel}>Discover</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('AI')}>
+          <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+          <Text style={styles.pillLabel}>AI</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('ThisOrThat')}>
+          <Ionicons name="swap-horizontal-outline" size={16} color={colors.primary} />
+          <Text style={styles.pillLabel}>This or That</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('CreateRoom')}>
+          <Ionicons name="people-outline" size={16} color={colors.primary} />
+          <Text style={styles.pillLabel}>Group</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('Search')}>
+          <Ionicons name="search-outline" size={16} color={colors.primary} />
+          <Text style={styles.pillLabel}>Search</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Today's Pick — prominent */}
+      {dailyRec && dailyRec.movie && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Today's Pick</Text>
+          <TouchableOpacity
+            style={styles.dailyCard}
+            onPress={() => navigation.navigate('MovieDetail', { movieId: dailyRec.movie.id })}
+            activeOpacity={0.85}
+          >
+            <OptimizedImage
+              uri={getPosterUrl(dailyRec.movie.posterPath, 'large')}
+              style={styles.dailyPoster}
+            />
+            <View style={styles.dailyOverlay}>
+              <Text style={styles.dailyTitle} numberOfLines={2}>{dailyRec.movie.title}</Text>
+              <Text style={styles.dailyReason} numberOfLines={2}>{dailyRec.reason}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       )}
 
+      {/* Trending */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Trending Now</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-            <Text style={styles.seeAll}>Search All</Text>
+            <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
         <FlatList
@@ -167,19 +228,25 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           contentContainerStyle={styles.carousel}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.trendingCard}
+              style={styles.movieCard}
               onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
+              activeOpacity={0.85}
             >
               <OptimizedImage
                 uri={getPosterUrl(item.posterPath, 'medium')}
-                style={styles.trendingPoster}
+                style={styles.moviePoster}
               />
-              <Text style={styles.trendingTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={10} color={colors.warning} />
+                <Text style={styles.ratingText}>{item.voteAverage.toFixed(1)}</Text>
+              </View>
             </TouchableOpacity>
           )}
         />
       </View>
 
+      {/* Suggested */}
       {suggestions.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Suggested For You</Text>
@@ -191,37 +258,26 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             contentContainerStyle={styles.carousel}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.trendingCard}
+                style={styles.movieCard}
                 onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
+                activeOpacity={0.85}
               >
                 <OptimizedImage
                   uri={getPosterUrl(item.posterPath, 'medium')}
-                  style={styles.trendingPoster}
+                  style={styles.moviePoster}
                 />
-                <Text style={styles.trendingTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={10} color={colors.warning} />
+                  <Text style={styles.ratingText}>{item.voteAverage.toFixed(1)}</Text>
+                </View>
               </TouchableOpacity>
             )}
           />
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Browse by Genre</Text>
-        <View style={styles.genreChips}>
-          {genres.map((g) => (
-            <Chip
-              key={g.id}
-              style={styles.genreChip}
-              textStyle={styles.genreChipText}
-              onPress={() => navigation.navigate('SoloSwipe', { genreId: g.id, genreName: g.name })}
-            >
-              {g.name}
-            </Chip>
-          ))}
-        </View>
-      </View>
-
-      <View style={{ height: spacing.xxl }} />
+      <View style={{ height: spacing.xxl + spacing.lg }} />
 
       <Snackbar
         visible={snackbar.visible}
@@ -234,117 +290,144 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
+const POSTER_W = 140;
+const POSTER_H = 210;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.md,
   },
-  greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  statsStrip: {
+  heroLeft: {
     flexDirection: 'row',
-    marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     alignItems: 'center',
-  },
-  statItem: {
+    gap: spacing.md,
     flex: 1,
-    alignItems: 'center',
   },
-  statValue: {
+  heroAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  heroAvatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroInitials: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  heroText: {
+    flex: 1,
+  },
+  greeting: {
     fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
   },
-  statLabel: {
-    fontSize: 12,
+  subtitle: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.border,
+  heroAccent: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+    marginLeft: spacing.sm,
   },
-  quickActions: {
+  statsRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
-  actionCard: {
+  statPill: {
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-  actionTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  actionDesc: {
-    color: colors.textTertiary,
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  dailyRecCard: {
-    flexDirection: 'row',
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderColor: colors.border,
   },
-  dailyRecPoster: {
-    width: 80,
-    height: 120,
-  },
-  dailyRecInfo: {
-    flex: 1,
-    padding: spacing.md,
-    justifyContent: 'center',
-  },
-  dailyRecLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  dailyRecTitle: {
-    fontSize: 17,
+  statValue: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: spacing.xs,
   },
-  dailyRecReason: {
-    fontSize: 12,
+  statLabel: {
+    fontSize: 10,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
-    lineHeight: 16,
+    marginTop: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  ctaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '25',
+  },
+  ctaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  ctaTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  ctaSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  pillRow: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.round,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pillLabel: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '500',
   },
   section: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -354,7 +437,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
     paddingHorizontal: spacing.lg,
@@ -362,35 +445,63 @@ const styles = StyleSheet.create({
   },
   seeAll: {
     color: colors.primary,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  dailyCard: {
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    height: 200,
+  },
+  dailyPoster: {
+    width: '100%',
+    height: '100%',
+  },
+  dailyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    padding: spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  dailyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  dailyReason: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
   carousel: {
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  trendingCard: {
-    width: 120,
+  movieCard: {
+    width: POSTER_W,
   },
-  trendingPoster: {
-    width: 120,
-    height: 180,
-    borderRadius: borderRadius.md,
+  moviePoster: {
+    width: POSTER_W,
+    height: POSTER_H,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  trendingTitle: {
+  movieTitle: {
     color: colors.text,
     fontSize: 13,
+    fontWeight: '500',
     marginTop: spacing.xs,
   },
-  genreChips: {
+  ratingRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
   },
-  genreChip: {
-    backgroundColor: colors.surfaceVariant,
-  },
-  genreChipText: {
-    color: colors.text,
+  ratingText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
 });

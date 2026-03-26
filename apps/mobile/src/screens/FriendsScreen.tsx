@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, TextInput as RNTextInput } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, TextInput as RNTextInput, Share } from 'react-native';
 import { Text, Avatar, Button, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,7 +37,7 @@ interface FriendsScreenProps {
 }
 
 export function FriendsScreen({ navigation }: FriendsScreenProps) {
-  const { getIdToken } = useAuth();
+  const { user, getIdToken } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,24 +114,40 @@ export function FriendsScreen({ navigation }: FriendsScreenProps) {
     }
   };
 
+  const handleShare = async () => {
+    const username = user?.displayName ?? user?.email?.split('@')[0] ?? '';
+    try {
+      await Share.share({
+        message: `Add me on ReelRank! Search for "${username}" or my email to connect.`,
+      });
+    } catch {
+      // user cancelled
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color={colors.textTertiary} />
-        <RNTextInput
-          style={styles.searchInput}
-          placeholder="Search by email or username..."
-          placeholderTextColor={colors.textTertiary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
-            <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
-          </TouchableOpacity>
-        )}
+      <View style={styles.searchRow}>
+        <View style={[styles.searchBar, { flex: 1 }]}>
+          <Ionicons name="search" size={18} color={colors.textTertiary} />
+          <RNTextInput
+            style={styles.searchInput}
+            placeholder="Search by email or username..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
+              <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <Ionicons name="share-outline" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {searchResults.length > 0 && (
@@ -235,16 +251,29 @@ export function FriendsScreen({ navigation }: FriendsScreenProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  searchBar: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  shareBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchInput: {
     flex: 1,

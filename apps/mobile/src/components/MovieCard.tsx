@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { OptimizedImage } from './OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 
-const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.78;
-const maxCardHeight = height - 300;
-const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.4, maxCardHeight);
+export function getCardDimensions(screenWidth: number, screenHeight: number) {
+  const cardWidth = screenWidth * 0.72;
+  const maxHeight = screenHeight - 340;
+  const cardHeight = Math.min(cardWidth * 1.4, maxHeight);
+  return { cardWidth, cardHeight };
+}
 
 interface MovieCardProps {
   movie: Movie;
@@ -17,10 +19,16 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ movie, onPress }: MovieCardProps) {
+  const { width, height } = useWindowDimensions();
+  const { cardWidth, cardHeight } = getCardDimensions(width, height);
   const year = movie.releaseDate?.split('-')[0] ?? '';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>
+    <TouchableOpacity
+      style={[styles.card, { width: cardWidth, height: cardHeight }]}
+      onPress={onPress}
+      activeOpacity={0.95}
+    >
       <OptimizedImage
         uri={getPosterUrl(movie.posterPath, 'large')}
         style={styles.poster}
@@ -42,12 +50,8 @@ export function MovieCard({ movie, onPress }: MovieCardProps) {
   );
 }
 
-export { CARD_WIDTH, CARD_HEIGHT };
-
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     backgroundColor: colors.surfaceVariant,
@@ -66,28 +70,28 @@ const styles = StyleSheet.create({
     right: 12,
     backgroundColor: colors.accent,
     borderRadius: borderRadius.round,
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ratingText: {
     color: colors.onAccent,
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
   },
   info: {
-    padding: 16,
+    padding: 14,
     backgroundColor: colors.overlayLight,
   },
   title: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   year: {
     color: colors.textSecondary,
-    fontSize: 16,
-    marginTop: 4,
+    fontSize: 14,
+    marginTop: 2,
   },
 });

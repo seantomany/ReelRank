@@ -54,7 +54,7 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'home';
           switch (route.name) {
             case 'Home': iconName = 'home'; break;
@@ -63,13 +63,16 @@ function MainTabs() {
             case 'Group': iconName = 'people'; break;
             case 'Profile': iconName = 'person'; break;
           }
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={26} color={color} />;
         },
+        tabBarShowLabel: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          height: 52,
+          paddingBottom: 0,
         },
         ...screenOptions,
       })}

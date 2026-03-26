@@ -6,7 +6,7 @@ import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { getPosterUrl } from "@reelrank/shared";
-import { ArrowLeft, Search, X, UserPlus, Check, XIcon, ChevronRight } from "lucide-react";
+import { ArrowLeft, Search, X, UserPlus, Check, XIcon, ChevronRight, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Friend {
@@ -115,7 +115,24 @@ export default function FriendsPage() {
         <ArrowLeft className="w-4 h-4" /> Profile
       </Link>
 
-      <h1 className="text-lg font-semibold text-[#e8e8e8] mb-4">Friends</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold text-[#e8e8e8]">Friends</h1>
+        <button
+          onClick={async () => {
+            const msg = "Add me on ReelRank! Search for my username or email to connect.";
+            if (navigator.share) {
+              try { await navigator.share({ text: msg }); } catch {}
+            } else {
+              await navigator.clipboard.writeText(msg);
+              toast.success("Invite text copied to clipboard!");
+            }
+          }}
+          className="flex items-center gap-1.5 text-xs text-[#ff2d55] hover:text-white transition-colors px-3 py-1.5 rounded-full bg-[#ff2d55]/10 hover:bg-[#ff2d55]/20 cursor-pointer"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          Invite
+        </button>
+      </div>
 
       {/* Search */}
       <div className="relative mb-4">
