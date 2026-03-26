@@ -328,6 +328,55 @@ export const api = {
         120_000
       ),
   },
+  social: {
+    searchUsers: (query: string) =>
+      apiFetch<{ id: string; displayName: string; username: string | null; photoUrl: string | null; email: string }[]>(
+        `/api/users/search?q=${encodeURIComponent(query)}`
+      ),
+    getFriends: () =>
+      apiFetch<{ friendshipId: string; userId: string; displayName: string; username: string | null; photoUrl: string | null }[]>(
+        "/api/social/friends"
+      ),
+    getRequests: () =>
+      apiFetch<{ id: string; fromUserId: string; fromDisplayName: string; fromPhotoUrl: string | null; createdAt: string }[]>(
+        "/api/social/requests"
+      ),
+    sendRequest: (toUserId: string) =>
+      apiFetch<{ id?: string; accepted?: boolean }>("/api/social/requests", {
+        method: "POST",
+        body: JSON.stringify({ toUserId }),
+      }),
+    handleRequest: (requestId: string, action: "accept" | "reject") =>
+      apiFetch<{ success: boolean }>("/api/social/requests", {
+        method: "PATCH",
+        body: JSON.stringify({ requestId, action }),
+      }),
+    getFriendProfile: (userId: string) =>
+      apiFetch<{
+        displayName: string;
+        username: string | null;
+        photoUrl: string | null;
+        stats: { totalSwipes: number; moviesWatched: number; likeRate: number };
+        recentWatched: {
+          id: string;
+          movieId: number;
+          movie: import("@reelrank/shared").Movie;
+          rating: number;
+          watchedAt: string;
+          venue: string;
+          notes: string | null;
+        }[];
+      }>(`/api/social/profile/${userId}`),
+    getComments: (watchedId: string) =>
+      apiFetch<{ id: string; text: string; authorId: string; authorName: string; authorPhoto: string | null; createdAt: string }[]>(
+        `/api/social/comments?watchedId=${watchedId}`
+      ),
+    addComment: (watchedId: string, targetUserId: string, text: string) =>
+      apiFetch<{ id: string }>("/api/social/comments", {
+        method: "POST",
+        body: JSON.stringify({ watchedId, targetUserId, text }),
+      }),
+  },
   auth: {
     verify: () =>
       apiFetch<import("@reelrank/shared").User>("/api/auth/verify", {

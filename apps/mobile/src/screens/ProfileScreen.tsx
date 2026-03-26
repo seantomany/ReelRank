@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Avatar, Button, SegmentedButtons, Snackbar, ActivityIndicator } from 'react-native-paper';
+import { Text, Avatar, Button, SegmentedButtons, Snackbar, ActivityIndicator, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -14,20 +14,30 @@ interface ProfileScreenProps {
   navigation: NativeStackNavigationProp<any>;
 }
 
+type WatchlistSort = 'recent' | 'alpha' | 'genre';
+type WatchedSort = 'recent' | 'rating' | 'alpha';
+
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, getIdToken } = useAuth();
   const [stats, setStats] = useState<any>(null);
+  const [insights, setInsights] = useState<any>(null);
   const [tab, setTab] = useState('rankings');
   const [tabData, setTabData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const [watchlistSort, setWatchlistSort] = useState<WatchlistSort>('recent');
+  const [watchedSort, setWatchedSort] = useState<WatchedSort>('recent');
 
   const loadStats = useCallback(async () => {
     try {
       const token = await getIdToken();
-      const res = await api.solo.stats(token);
-      if (res.data) setStats(res.data);
+      const [statsRes, insightsRes] = await Promise.all([
+        api.solo.stats(token),
+        api.solo.insights(token),
+      ]);
+      if (statsRes.data) setStats(statsRes.data);
+      if (insightsRes.data) setInsights(insightsRes.data);
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
@@ -76,6 +86,38 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
   const initials = displayName.charAt(0).toUpperCase();
 
+  const topGenres = insights?.genreBreakdown?.slice(0, 3) ?? [];
+  const personality = insights?.moviePersonality;
+
+  const getSortedData = () => {
+    const data = tabData.filter(Boolean);
+    if (tab === 'watchlist') {
+      return [...data].sort((a, b) => {
+        if (watchlistSort === 'alpha') {
+          return ((a.movie ?? a).title ?? '').localeCompare((b.movie ?? b).title ?? '');
+        }
+        if (watchlistSort === 'genre') {
+          const ga = (a.movie ?? a).genreIds?.[0] ?? 999;
+          const gb = (b.movie ?? b).genreIds?.[0] ?? 999;
+          return ga - gb;
+        }
+        return 0;
+      });
+    }
+    if (tab === 'watched') {
+      return [...data].sort((a, b) => {
+        if (watchedSort === 'rating') return (b.rating ?? 0) - (a.rating ?? 0);
+        if (watchedSort === 'alpha') {
+          return ((a.movie ?? a).title ?? '').localeCompare((b.movie ?? b).title ?? '');
+        }
+        return 0;
+      });
+    }
+    return data;
+  };
+
+  const sortedData = getSortedData();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -98,6 +140,15 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           )}
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
+          {topGenres.length > 0 && (
+            <View style={styles.genreTags}>
+              {topGenres.map((g: any) => (
+                <View key={g.genreId} style={styles.genreTag}>
+                  <Text style={styles.genreTagText}>{g.genreName}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <TouchableOpacity
             style={styles.friendsButton}
             onPress={() => navigation.navigate('Friends')}
@@ -128,6 +179,26 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           </View>
         )}
 
+        {/* View Stats Link */}
+        <TouchableOpacity
+          style={styles.statsLink}
+          onPress={() => navigation.navigate('Stats')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.statsLinkLeft}>
+            <Ionicons name="bar-chart-outline" size={18} color={colors.accent} />
+            <View>
+              <Text style={styles.statsLinkTitle}>Your Stats</Text>
+              <Text style={styles.statsLinkSubtitle}>
+                {personality?.title
+                  ? `${personality.title} — view full breakdown`
+                  : 'Genre taste, watch habits, and more'}
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         <SegmentedButtons
           value={tab}
           onValueChange={(v) => { setTab(v); }}
@@ -139,17 +210,51 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           style={styles.tabs}
         />
 
+        {/* Sort options */}
+        {tab === 'watchlist' && tabData.length > 0 && (
+          <View style={styles.sortRow}>
+            <Text style={styles.sortLabel}>Sort</Text>
+            {(['recent', 'alpha', 'genre'] as WatchlistSort[]).map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => setWatchlistSort(s)}
+                style={[styles.sortPill, watchlistSort === s && styles.sortPillActive]}
+              >
+                <Text style={[styles.sortPillText, watchlistSort === s && styles.sortPillTextActive]}>
+                  {s === 'recent' ? 'Recent' : s === 'alpha' ? 'A–Z' : 'Genre'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {tab === 'watched' && tabData.length > 0 && (
+          <View style={styles.sortRow}>
+            <Text style={styles.sortLabel}>Sort</Text>
+            {(['recent', 'rating', 'alpha'] as WatchedSort[]).map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => setWatchedSort(s)}
+                style={[styles.sortPill, watchedSort === s && styles.sortPillActive]}
+              >
+                <Text style={[styles.sortPillText, watchedSort === s && styles.sortPillTextActive]}>
+                  {s === 'recent' ? 'Recent' : s === 'rating' ? 'Rating' : 'A–Z'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {loading ? (
           <ActivityIndicator style={{ paddingVertical: spacing.xl }} color={colors.primary} />
-        ) : tabData.length === 0 ? (
+        ) : sortedData.length === 0 ? (
           <Text style={styles.emptyText}>
             {tab === 'rankings' ? 'Start swiping to build your rankings!' :
               tab === 'watchlist' ? 'Swipe right on movies to add them here.' :
                 'Log movies you\'ve watched to track them here.'}
           </Text>
         ) : (
-          tabData.map((item, index) => {
-            const movie = item.movie ?? item;
+          sortedData.map((item, index) => {
+            const movie = item?.movie ?? item;
             return (
               <TouchableOpacity
                 key={`${item.movieId ?? item.id ?? index}`}
@@ -205,6 +310,15 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           })
         )}
 
+        {tab === 'rankings' && sortedData.length > 0 && (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ThisOrThat')}
+            style={styles.refineLink}
+          >
+            <Text style={styles.refineLinkText}>Refine your rankings</Text>
+          </TouchableOpacity>
+        )}
+
         <Button
           mode="text"
           onPress={() => navigation.navigate('Settings')}
@@ -250,13 +364,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
+  genreTags: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  genreTag: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  genreTagText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
   statsGrid: {
     flexDirection: 'row',
     marginHorizontal: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   statBox: {
     flex: 1,
@@ -272,9 +401,67 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  statsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  statsLinkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  statsLinkTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  statsLinkSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
   tabs: {
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  sortLabel: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sortPill: {
+    borderRadius: 20,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+  },
+  sortPillActive: {
+    backgroundColor: colors.surface,
+  },
+  sortPillText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  sortPillTextActive: {
+    color: colors.text,
+    fontWeight: '500',
   },
   listRow: {
     flexDirection: 'row',
@@ -347,5 +534,14 @@ const styles = StyleSheet.create({
   settingsButton: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
+  },
+  refineLink: {
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  refineLinkText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

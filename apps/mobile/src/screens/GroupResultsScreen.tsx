@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Text, Button, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { useRoom } from '../hooks/useRoom';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
-import type { MovieScore } from '@reelrank/shared';
+import type { MovieScore, Movie } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -18,10 +20,16 @@ interface GroupResultsScreenProps {
 
 export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProps) {
   const { roomCode } = route.params as { roomCode: string };
-  const { getIdToken } = useAuth();
+  const { user, getIdToken } = useAuth();
+  const { room } = useRoom(roomCode);
   const [scores, setScores] = useState<MovieScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  const [bonusActive, setBonusActive] = useState(false);
+  const [bonusMovies, setBonusMovies] = useState<Movie[]>([]);
+  const [bonusVoted, setBonusVoted] = useState(false);
+  const [bonusWinner, setBonusWinner] = useState<Movie | null>(null);
 
   useEffect(() => {
     loadResults();
@@ -45,6 +53,51 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
     }
   };
 
+  const groupPicks = scores.filter(
+    (m) => m.rightSwipes === m.totalVoters && m.totalVoters > 0
+  );
+  const hasMultiplePicks = groupPicks.length > 1;
+  const isHost = room?.hostId === user?.uid;
+
+  const handleStartBonusRound = async () => {
+    try {
+      const token = await getIdToken();
+      const movieIds = groupPicks.map((m) => m.movieId);
+      const res = await api.rooms.bonusRound(roomCode, { movieIds }, token);
+      if (res.data && typeof res.data === 'object') {
+        setBonusActive(true);
+        if ((res.data as any).movies) setBonusMovies((res.data as any).movies);
+      } else if (res.error) {
+        setSnackbar({ visible: true, message: res.error as string });
+      }
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to start bonus round' });
+    }
+  };
+
+  const handleBonusVote = async (movieId: number) => {
+    if (bonusVoted) return;
+    setBonusVoted(true);
+    try {
+      const token = await getIdToken();
+      const res = await api.rooms.bonusRound(roomCode, { movieId }, token);
+      if (res.data && typeof res.data === 'object') {
+        const data = res.data as any;
+        if (data.status === 'completed' && data.movie) {
+          setBonusWinner(data.movie);
+          setBonusActive(false);
+          setSnackbar({ visible: true, message: `Bonus round winner: ${data.movie.title}` });
+        }
+      } else if (res.error) {
+        setSnackbar({ visible: true, message: res.error as string });
+        setBonusVoted(false);
+      }
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to vote' });
+      setBonusVoted(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -58,7 +111,72 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
   const runnersUp = scores.slice(1);
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Bonus Round Winner */}
+      {bonusWinner && (
+        <View style={styles.bonusWinnerCard}>
+          <Text style={styles.bonusWinnerLabel}>Bonus Round Winner</Text>
+          <Text style={styles.bonusWinnerTitle}>{bonusWinner.title}</Text>
+        </View>
+      )}
+
+      {/* Bonus Round Voting */}
+      {bonusActive && bonusMovies.length > 0 && (
+        <View style={styles.bonusSection}>
+          <Text style={styles.bonusLabel}>Bonus Round</Text>
+          <Text style={styles.bonusHint}>Pick your favorite from the group picks</Text>
+          <View style={styles.bonusGrid}>
+            {bonusMovies.map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.bonusCard, bonusVoted && styles.bonusCardDisabled]}
+                onPress={() => handleBonusVote(m.id)}
+                disabled={bonusVoted}
+                activeOpacity={0.7}
+              >
+                <OptimizedImage
+                  uri={getPosterUrl(m.posterPath, 'medium')}
+                  style={styles.bonusPoster}
+                />
+                <Text style={styles.bonusMovieTitle} numberOfLines={1}>{m.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {bonusVoted && (
+            <Text style={styles.bonusWaiting}>Waiting for others...</Text>
+          )}
+        </View>
+      )}
+
+      {/* Group Picks (Unanimous) */}
+      {hasMultiplePicks && !bonusActive && !bonusWinner && (
+        <View style={styles.groupPicksSection}>
+          <Text style={styles.groupPicksLabel}>Group Picks (unanimous)</Text>
+          <FlatList
+            horizontal
+            data={groupPicks}
+            keyExtractor={(item) => String(item.movieId)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.groupPicksRow}
+            renderItem={({ item }) => (
+              <View style={styles.groupPickCard}>
+                <OptimizedImage
+                  uri={getPosterUrl(item.movie.posterPath, 'small')}
+                  style={styles.groupPickPoster}
+                />
+                <Text style={styles.groupPickTitle} numberOfLines={1}>{item.movie.title}</Text>
+              </View>
+            )}
+          />
+          {isHost && (
+            <TouchableOpacity onPress={handleStartBonusRound} style={styles.bonusStartButton}>
+              <Text style={styles.bonusStartText}>Start bonus round to pick one</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Winner */}
       {winner && (
         <View style={styles.winnerSection}>
           <Text style={styles.winnerLabel}>The Group Picks</Text>
@@ -68,11 +186,12 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
           />
           <Text style={styles.winnerTitle}>{winner.movie.title}</Text>
           <Text style={styles.winnerScore}>
-            {winner.rightSwipes}/{winner.rightSwipes + winner.leftSwipes} votes
+            {winner.rightSwipes}/{winner.totalVoters} votes
           </Text>
         </View>
       )}
 
+      {/* Runners Up */}
       {runnersUp.length > 0 && (
         <View style={styles.runnersUpSection}>
           <Text style={styles.runnersUpTitle}>Runners Up</Text>
@@ -97,7 +216,7 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
       >
         {snackbar.message}
       </Snackbar>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -116,6 +235,114 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.textSecondary,
     fontSize: 16,
+  },
+  bonusWinnerCard: {
+    margin: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  bonusWinnerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: spacing.sm,
+  },
+  bonusWinnerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  bonusSection: {
+    margin: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  bonusLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: spacing.xs,
+  },
+  bonusHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  bonusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'center',
+  },
+  bonusCard: {
+    width: '46%',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  bonusCardDisabled: {
+    opacity: 0.5,
+  },
+  bonusPoster: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+    borderRadius: borderRadius.sm,
+  },
+  bonusMovieTitle: {
+    fontSize: 12,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  bonusWaiting: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+  },
+  groupPicksSection: {
+    paddingVertical: spacing.md,
+  },
+  groupPicksLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  groupPicksRow: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  groupPickCard: {
+    width: 80,
+  },
+  groupPickPoster: {
+    width: 80,
+    height: 120,
+    borderRadius: borderRadius.sm,
+  },
+  groupPickTitle: {
+    fontSize: 10,
+    color: colors.text,
+    marginTop: 4,
+  },
+  bonusStartButton: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  bonusStartText: {
+    fontSize: 13,
+    color: colors.accent,
+    textDecorationLine: 'underline',
   },
   winnerSection: {
     alignItems: 'center',
@@ -148,7 +375,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   runnersUpSection: {
-    flex: 1,
     marginTop: spacing.lg,
   },
   runnersUpTitle: {

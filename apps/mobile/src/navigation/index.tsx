@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -25,6 +26,8 @@ import { OnboardingScreen, hasSeenOnboarding } from '../screens/OnboardingScreen
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { FriendsScreen } from '../screens/FriendsScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
+import { AIScreen } from '../screens/AIScreen';
+import { StatsScreen } from '../screens/StatsScreen';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -36,6 +39,16 @@ const screenOptions = {
   headerShadowVisible: false,
   contentStyle: { backgroundColor: colors.background },
 };
+
+function withErrorBoundary<P extends object>(WrappedComponent: React.ComponentType<P>) {
+  return function BoundaryWrapped(props: P) {
+    return (
+      <ErrorBoundary>
+        <WrappedComponent {...props} />
+      </ErrorBoundary>
+    );
+  };
+}
 
 function MainTabs() {
   return (
@@ -60,10 +73,10 @@ function MainTabs() {
         ...screenOptions,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Discover" component={SoloSwipeScreen} />
-      <Tab.Screen name="Group" component={GroupScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={withErrorBoundary(HomeScreen)} />
+      <Tab.Screen name="Discover" component={withErrorBoundary(SoloSwipeScreen)} />
+      <Tab.Screen name="Group" component={withErrorBoundary(GroupScreen)} />
+      <Tab.Screen name="Profile" component={withErrorBoundary(ProfileScreen)} />
     </Tab.Navigator>
   );
 }
@@ -118,6 +131,8 @@ export function AppNavigator() {
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', headerBackTitle: 'Profile' }} />
             <Stack.Screen name="Friends" component={FriendsScreen} options={{ title: 'Friends', headerBackTitle: 'Profile' }} />
             <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ title: 'Profile', headerBackTitle: 'Friends' }} />
+            <Stack.Screen name="AI" component={AIScreen} options={{ title: 'ReelRank AI', headerBackTitle: 'Home' }} />
+            <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Your Stats', headerBackTitle: 'Profile' }} />
           </>
         )}
       </Stack.Navigator>

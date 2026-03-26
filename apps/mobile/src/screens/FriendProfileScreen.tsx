@@ -109,24 +109,26 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
           <Text style={styles.name}>{profile.displayName}</Text>
         </View>
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{profile.stats.totalSwipes}</Text>
-            <Text style={styles.statLabel}>Swipes</Text>
+        {profile.stats && (
+          <View style={styles.statsGrid}>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{profile.stats?.totalSwipes ?? 0}</Text>
+              <Text style={styles.statLabel}>Swipes</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{profile.stats?.moviesWatched ?? 0}</Text>
+              <Text style={styles.statLabel}>Watched</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{profile.stats?.likeRate ?? 0}%</Text>
+              <Text style={styles.statLabel}>Like Rate</Text>
+            </View>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{profile.stats.moviesWatched}</Text>
-            <Text style={styles.statLabel}>Watched</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{profile.stats.likeRate}%</Text>
-            <Text style={styles.statLabel}>Like Rate</Text>
-          </View>
-        </View>
+        )}
 
         <Text style={styles.sectionTitle}>Recent Watches</Text>
 
-        {profile.recentWatched.length === 0 ? (
+        {!profile.recentWatched || profile.recentWatched.length === 0 ? (
           <Text style={styles.emptyText}>No watched movies yet</Text>
         ) : (
           profile.recentWatched.map((item: WatchedItem) => (

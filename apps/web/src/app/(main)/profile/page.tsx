@@ -21,7 +21,7 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { BarChart3, ChevronRight } from "lucide-react";
+import { BarChart3, ChevronRight, Users } from "lucide-react";
 
 interface Stats {
   totalSwipes: number;
@@ -236,6 +236,23 @@ export default function ProfilePage() {
               {insights?.moviePersonality.title
                 ? `${insights.moviePersonality.title} — view full breakdown`
                 : "Genre taste, watch habits, and more"}
+            </p>
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-[#888] group-hover:text-[#e8e8e8] transition-colors" />
+      </Link>
+
+      {/* Friends link */}
+      <Link
+        href="/friends"
+        className="mt-3 flex items-center justify-between rounded-lg bg-[#111] border border-[rgba(255,255,255,0.06)] px-4 py-3 group hover:border-[rgba(255,255,255,0.12)] transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Users className="w-4 h-4 text-[#ff2d55]" />
+          <div>
+            <p className="text-sm text-[#e8e8e8] font-medium">Friends</p>
+            <p className="text-[11px] text-[#888]">
+              View friends, requests, and add new ones
             </p>
           </div>
         </div>

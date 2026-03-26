@@ -14,6 +14,7 @@ interface CreateRoomScreenProps {
 export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
   const { getIdToken } = useAuth();
   const [roomName, setRoomName] = useState('');
+  const [movieLimit, setMovieLimit] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
@@ -21,10 +22,11 @@ export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
     setLoading(true);
     try {
       const token = await getIdToken();
-      const res = await api.rooms.create(
-        { ...(roomName.trim() ? { name: roomName.trim() } : {}) },
-        token,
-      );
+      const limit = movieLimit ? parseInt(movieLimit, 10) : undefined;
+      const body: any = {};
+      if (roomName.trim()) body.name = roomName.trim();
+      if (limit && limit >= 1 && limit <= 20) body.maxMoviesPerMember = limit;
+      const res = await api.rooms.create(body, token);
       if (res.data && typeof res.data === 'object' && 'code' in res.data) {
         navigation.replace('Lobby', { roomCode: (res.data as any).code });
       } else if (res.error) {
@@ -54,6 +56,20 @@ export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
           onChangeText={setRoomName}
           placeholder="e.g. Friday Movie Night"
           maxLength={50}
+          style={styles.nameInput}
+          textColor={colors.text}
+          outlineColor={colors.border}
+          activeOutlineColor={colors.primary}
+        />
+
+        <TextInput
+          mode="outlined"
+          label="Movies per person (optional)"
+          value={movieLimit}
+          onChangeText={setMovieLimit}
+          placeholder="No limit"
+          keyboardType="number-pad"
+          maxLength={2}
           style={styles.nameInput}
           textColor={colors.text}
           outlineColor={colors.border}

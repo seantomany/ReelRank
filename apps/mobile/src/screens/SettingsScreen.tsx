@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Alert, Linking, TextInput as RNTextInput, TouchableOpacity } from 'react-native';
 import { Text, Switch, Button, Divider, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../utils/api';
 import { colors, spacing, borderRadius } from '../theme';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -26,10 +27,50 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export function SettingsScreen({ navigation }: SettingsScreenProps) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, getIdToken } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [dailyRecEnabled, setDailyRecEnabled] = useState(true);
+  const [username, setUsername] = useState('');
+  const [savedUsername, setSavedUsername] = useState('');
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getIdToken();
+        const res = await api.auth.verify(token);
+        if (res.data && typeof res.data === 'object' && 'username' in (res.data as any)) {
+          const u = (res.data as any).username ?? '';
+          setUsername(u);
+          setSavedUsername(u);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const handleSaveUsername = async () => {
+    if (!username.trim() || username.trim().length < 3) {
+      setSnackbar({ visible: true, message: 'Username must be at least 3 characters' });
+      return;
+    }
+    setSavingUsername(true);
+    try {
+      const token = await getIdToken();
+      const res = await api.auth.updateProfile({ username: username.trim() }, token);
+      if (res.data) {
+        setSavedUsername(username.trim());
+        setEditingUsername(false);
+        setSnackbar({ visible: true, message: 'Username updated' });
+      } else if (res.error) {
+        setSnackbar({ visible: true, message: res.error });
+      }
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to update username' });
+    }
+    setSavingUsername(false);
+  };
 
   const handleClearCache = async () => {
     Alert.alert('Clear Cache', 'This will clear locally cached data. You won\'t lose any account data.', [
@@ -87,6 +128,40 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             label="Display Name"
             right={<Text style={styles.valueText}>{user?.displayName ?? 'Not set'}</Text>}
           />
+          <Divider style={styles.divider} />
+          <View style={styles.settingRow}>
+            <Ionicons name="at-outline" size={22} color={colors.textSecondary} />
+            <Text style={styles.settingLabel}>Username</Text>
+            <View style={styles.settingRight}>
+              {editingUsername ? (
+                <View style={styles.usernameEditRow}>
+                  <RNTextInput
+                    style={styles.usernameInput}
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="username"
+                    placeholderTextColor={colors.textTertiary}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={20}
+                    onSubmitEditing={handleSaveUsername}
+                  />
+                  <TouchableOpacity onPress={handleSaveUsername} disabled={savingUsername}>
+                    <Text style={styles.saveText}>{savingUsername ? '...' : 'Save'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setUsername(savedUsername); setEditingUsername(false); }}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setEditingUsername(true)}>
+                  <Text style={styles.usernameValueText}>
+                    {savedUsername || 'Set username'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
 
         <SectionHeader title="Notifications" />
@@ -255,5 +330,31 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     opacity: 0.6,
+  },
+  usernameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  usernameInput: {
+    color: colors.text,
+    fontSize: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 2,
+    minWidth: 90,
+  },
+  saveText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cancelText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  usernameValueText: {
+    color: colors.primary,
+    fontSize: 14,
   },
 });

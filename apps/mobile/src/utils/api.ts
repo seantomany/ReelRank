@@ -104,6 +104,14 @@ export const api = {
       apiFetch('/api/solo/watched', { token }),
     dailyRec: (token: string) =>
       apiFetch('/api/solo/daily-rec', { token }),
+    insights: (token: string) =>
+      apiFetch('/api/solo/insights', { token }),
+    suggestions: (token: string) =>
+      apiFetch('/api/solo/suggestions', { token }),
+    rank: (movieId: number, insertAtIndex: number, token: string) =>
+      apiFetch('/api/solo/rank', { method: 'POST', body: { movieId, insertAtIndex }, token }),
+    swipedIds: (token: string) =>
+      apiFetch('/api/solo/swiped-ids', { token }),
   },
 
   rooms: {
@@ -127,11 +135,29 @@ export const api = {
       apiFetch(`/api/rooms/${code}/results`, { token }),
     leave: (code: string, token: string) =>
       apiFetch(`/api/rooms/${code}/leave`, { method: 'POST', token }),
+    bonusRound: (code: string, data: unknown, token: string) =>
+      apiFetch(`/api/rooms/${code}/bonus-round`, { method: 'POST', body: data, token }),
   },
 
   users: {
     savePushToken: (pushToken: string, token: string) =>
       apiFetch('/api/users/push-token', { method: 'POST', body: { pushToken }, token }),
+  },
+
+  auth: {
+    verify: (token: string) =>
+      apiFetch('/api/auth/verify', { method: 'POST', token }),
+    updateProfile: (data: { username: string }, token: string) =>
+      apiFetch('/api/auth/profile', { method: 'PATCH', body: data, token }),
+  },
+
+  ai: {
+    chat: (messages: { role: string; content: string }[], token: string) =>
+      apiFetch('/api/ai/chat', { method: 'POST', body: { messages }, token }),
+    movieSearch: (query: string) =>
+      cachedGet(`/api/ai/movie-search?q=${encodeURIComponent(query)}`),
+    movieCard: (id: number) =>
+      cachedGet(`/api/ai/movie-card/${id}`),
   },
 
   social: {

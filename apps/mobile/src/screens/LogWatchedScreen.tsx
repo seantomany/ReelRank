@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text, Button, TextInput, Chip, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { RankFlowModal } from '../components/RankFlowModal';
 import { colors, spacing, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,6 +24,7 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
   const [venue, setVenue] = useState<string>('Home');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRankFlow, setShowRankFlow] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
       if (res.error) {
         setSnackbar({ visible: true, message: res.error });
       } else {
-        navigation.goBack();
+        setShowRankFlow(true);
       }
     } catch (error) {
       console.error('Failed to log watched:', error);
@@ -138,6 +140,18 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
       >
         {snackbar.message}
       </Snackbar>
+
+      {movie && (
+        <RankFlowModal
+          movie={movie}
+          visible={showRankFlow}
+          onClose={() => {
+            setShowRankFlow(false);
+            navigation.goBack();
+          }}
+          rating={rating}
+        />
+      )}
     </ScrollView>
   );
 }

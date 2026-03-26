@@ -31,6 +31,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
   const [dailyRec, setDailyRec] = useState<{ movie: any; reason: string } | null>(null);
+  const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,11 +63,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const loadData = async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, trendingRes, genresRes, recRes] = await Promise.all([
+      const [statsRes, trendingRes, genresRes, recRes, suggestionsRes] = await Promise.all([
         api.solo.stats(token),
         api.movies.trending(),
         api.movies.genres(),
         api.solo.dailyRec(token),
+        api.solo.suggestions(token),
       ]);
 
       if (statsRes.data) setStats(statsRes.data as any);
@@ -75,6 +77,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       }
       if (genresRes.data) setGenres((genresRes.data as any).slice(0, 8));
       if (recRes.data) setDailyRec(recRes.data as any);
+      if (suggestionsRes.data && Array.isArray(suggestionsRes.data)) {
+        setSuggestions((suggestionsRes.data as Movie[]).slice(0, 10));
+      }
     } catch (error) {
       console.error('Failed to load home data:', error);
       setSnackbar({ visible: true, message: 'Failed to load data. Pull to refresh.' });
@@ -117,15 +122,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.actionTitle}>Discover</Text>
           <Text style={styles.actionDesc}>Swipe to rank movies</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('AI')}>
+          <Ionicons name="sparkles" size={28} color={colors.accent} />
+          <Text style={styles.actionTitle}>AI</Text>
+          <Text style={styles.actionDesc}>Get recommendations</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('CreateRoom')}>
-          <Ionicons name="people" size={28} color={colors.accent} />
+          <Ionicons name="people" size={28} color={colors.primaryLight} />
           <Text style={styles.actionTitle}>Group</Text>
           <Text style={styles.actionDesc}>Decide with friends</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('ThisOrThat')}>
-          <Ionicons name="git-compare" size={28} color={colors.primaryLight} />
-          <Text style={styles.actionTitle}>This or That</Text>
-          <Text style={styles.actionDesc}>Refine your taste</Text>
         </TouchableOpacity>
       </View>
 
@@ -174,6 +179,31 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           )}
         />
       </View>
+
+      {suggestions.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Suggested For You</Text>
+          <FlatList
+            horizontal
+            data={suggestions}
+            keyExtractor={(item) => String(item.id)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carousel}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.trendingCard}
+                onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
+              >
+                <OptimizedImage
+                  uri={getPosterUrl(item.posterPath, 'medium')}
+                  style={styles.trendingPoster}
+                />
+                <Text style={styles.trendingTitle} numberOfLines={1}>{item.title}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Browse by Genre</Text>
