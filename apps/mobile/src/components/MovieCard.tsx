@@ -7,9 +7,9 @@ import { colors, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 
 export function getCardDimensions(screenWidth: number, screenHeight: number) {
-  const cardWidth = screenWidth * 0.72;
-  const maxHeight = screenHeight - 340;
-  const cardHeight = Math.min(cardWidth * 1.4, maxHeight);
+  const cardWidth = screenWidth * 0.82;
+  const maxHeight = screenHeight - 310;
+  const cardHeight = Math.min(cardWidth * 1.35, maxHeight);
   return { cardWidth, cardHeight };
 }
 

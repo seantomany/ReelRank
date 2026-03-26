@@ -8,10 +8,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RankFlowModal } from "@/components/rank-flow-modal";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { Check } from "lucide-react";
 import type { Movie } from "@reelrank/shared";
 
 const VENUES = ["Theater", "Home", "Friend's", "Outdoor", "Other"] as const;
 const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+interface Friend {
+  friendshipId: string;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  photoUrl: string | null;
+}
 
 export default function LogWatchedPage(props: { params: Promise<{ id: string }> }) {
   const { id } = React.use(props.params as Promise<{ id: string }>);
@@ -28,11 +37,27 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
   const [showDate, setShowDate] = useState(false);
   const [notes, setNotes] = useState("");
 
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     api.movies.get(Number(id)).then((res) => {
       if (res.data) setMovie(res.data);
     }).finally(() => setLoading(false));
+
+    api.social.getFriends().then((res) => {
+      if (res.data) setFriends(res.data);
+    });
   }, [id]);
+
+  function toggleFriend(userId: string) {
+    setSelectedFriendIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
 
   async function handleSubmit() {
     if (submitting) return;
@@ -43,6 +68,7 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
       ...(watchedAt ? { watchedAt } : {}),
       venue,
       notes: notes.trim() || undefined,
+      ...(selectedFriendIds.size > 0 ? { watchedWithFriendIds: Array.from(selectedFriendIds) } : {}),
     });
     if (res.error) {
       toast.error(res.error);
@@ -83,10 +109,9 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
     <div className="min-h-screen bg-[#000] flex flex-col justify-end md:justify-center">
       <div className="max-w-sm mx-auto w-full px-4 py-6 min-h-[calc(100vh-6rem)] md:min-h-0 flex flex-col justify-end md:justify-center">
         <div className="space-y-6">
-          {/* Movie title */}
           <p className="text-sm text-[#888]">{movie?.title}</p>
 
-          {/* Rating — big number + tappable row */}
+          {/* Rating */}
           <div>
             <motion.p
               key={rating}
@@ -97,8 +122,6 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
             >
               {rating}
             </motion.p>
-
-            {/* Tappable number row */}
             <div className="flex justify-between mt-4 px-1">
               {RATINGS.map((n) => (
                 <button
@@ -140,7 +163,46 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
             </div>
           </div>
 
-          {/* Date (optional) */}
+          {/* Watched With Friends */}
+          {friends.length > 0 && (
+            <div>
+              <label className="text-xs uppercase tracking-wider text-[#888]">Watched with</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {friends.map((f) => {
+                  const selected = selectedFriendIds.has(f.userId);
+                  return (
+                    <button
+                      key={f.userId}
+                      type="button"
+                      onClick={() => toggleFriend(f.userId)}
+                      className={`flex items-center gap-1.5 rounded-full text-xs px-3 py-1.5 min-h-[36px] transition-all cursor-pointer border ${
+                        selected
+                          ? "border-[#ff2d55] bg-[#ff2d55]/10 text-[#e8e8e8]"
+                          : "border-[rgba(255,255,255,0.08)] text-[#888] hover:text-[#aaa] hover:border-[rgba(255,255,255,0.15)]"
+                      }`}
+                    >
+                      {f.photoUrl ? (
+                        <img src={f.photoUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      ) : (
+                        <span className="w-5 h-5 rounded-full bg-[#222] flex items-center justify-center text-[10px] text-[#888]">
+                          {f.displayName?.charAt(0)?.toUpperCase()}
+                        </span>
+                      )}
+                      {f.displayName?.split(" ")[0]}
+                      {selected && <Check className="w-3 h-3 text-[#ff2d55]" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedFriendIds.size > 0 && (
+                <p className="text-[10px] text-[#555] mt-1.5">
+                  {selectedFriendIds.size} friend{selectedFriendIds.size > 1 ? "s" : ""} tagged
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Date */}
           <div>
             <div className="flex items-center justify-between">
               <label className="text-xs uppercase tracking-wider text-[#888]">When</label>
@@ -180,12 +242,10 @@ export default function LogWatchedPage(props: { params: Promise<{ id: string }> 
             />
           </div>
 
-          {/* Submit */}
           <Button onClick={handleSubmit} disabled={submitting} className="w-full min-h-[44px]">
             {submitting ? "Saving…" : "Save"}
           </Button>
 
-          {/* Cancel */}
           <button
             type="button"
             onClick={() => router.push(`/movie/${id}`)}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text, Button, TextInput, Chip, Snackbar, ActivityIndicator } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, Button, TextInput, Chip, Snackbar, ActivityIndicator, Avatar } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { RankFlowModal } from '../components/RankFlowModal';
@@ -10,6 +11,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 const VENUES = ['Theater', 'Home', "Friend's", 'Outdoor', 'Other'] as const;
+
+interface Friend {
+  friendshipId: string;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  photoUrl: string | null;
+}
 
 interface LogWatchedScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -27,13 +36,39 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
   const [showRankFlow, setShowRankFlow] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set());
+  const [friendsLoading, setFriendsLoading] = useState(true);
+
   useEffect(() => {
     loadMovie();
+    loadFriends();
   }, [movieId]);
 
   const loadMovie = async () => {
     const res = await api.movies.getMovie(movieId);
     if (res.data) setMovie(res.data as Movie);
+  };
+
+  const loadFriends = async () => {
+    try {
+      const token = await getIdToken();
+      const res = await api.social.getFriends(token);
+      if (res.data) setFriends(res.data as Friend[]);
+    } catch {
+      // ok if friends fail to load
+    } finally {
+      setFriendsLoading(false);
+    }
+  };
+
+  const toggleFriend = (id: string) => {
+    setSelectedFriendIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -45,6 +80,7 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
         rating,
         venue,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(selectedFriendIds.size > 0 ? { watchedWithFriendIds: Array.from(selectedFriendIds) } : {}),
       }, token);
 
       if (res.error) {
@@ -106,6 +142,43 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
           ))}
         </View>
       </View>
+
+      {/* Watched With Friends */}
+      {!friendsLoading && friends.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.label}>Watched with</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendsRow}>
+            {friends.map((f) => {
+              const selected = selectedFriendIds.has(f.userId);
+              return (
+                <TouchableOpacity
+                  key={f.userId}
+                  style={[styles.friendChip, selected && styles.friendChipSelected]}
+                  onPress={() => toggleFriend(f.userId)}
+                  activeOpacity={0.7}
+                >
+                  {f.photoUrl ? (
+                    <Avatar.Image size={24} source={{ uri: f.photoUrl }} />
+                  ) : (
+                    <Avatar.Text size={24} label={f.displayName?.charAt(0)?.toUpperCase() ?? '?'} />
+                  )}
+                  <Text style={[styles.friendChipText, selected && styles.friendChipTextSelected]}>
+                    {f.displayName?.split(' ')[0]}
+                  </Text>
+                  {selected && (
+                    <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {selectedFriendIds.size > 0 && (
+            <Text style={styles.friendsHint}>
+              {selectedFriendIds.size} friend{selectedFriendIds.size > 1 ? 's' : ''} tagged
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.label}>Notes (optional)</Text>
@@ -218,6 +291,37 @@ const styles = StyleSheet.create({
   },
   venueChipTextSelected: {
     color: colors.onPrimary,
+  },
+  friendsRow: {
+    gap: spacing.sm,
+  },
+  friendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.round,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  friendChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '15',
+  },
+  friendChipText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  friendChipTextSelected: {
+    color: colors.text,
+  },
+  friendsHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
   },
   notesInput: {
     backgroundColor: colors.surface,

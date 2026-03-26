@@ -65,6 +65,7 @@ export const WatchedMovieInputSchema = z.object({
   watchedAt: z.string().optional(),
   venue: z.enum(['Theater', 'Home', "Friend's", 'Outdoor', 'Other']),
   notes: z.string().max(500).optional(),
+  watchedWithFriendIds: z.array(z.string()).max(20).optional(),
 });
 
 export const TriageZoneSchema = z.enum(['loved', 'liked', 'okay', 'disliked']);

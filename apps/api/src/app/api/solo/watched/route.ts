@@ -14,7 +14,7 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
     throw new ApiError(400, parsed.error.errors[0]?.message ?? 'Invalid input', requestId);
   }
 
-  const { movieId, rating, venue, notes } = parsed.data;
+  const { movieId, rating, venue, notes, watchedWithFriendIds } = parsed.data;
   const watchedAt = parsed.data.watchedAt ?? new Date().toISOString().split('T')[0];
   const docId = `${user.id}_${movieId}`;
   const now = new Date();
@@ -27,6 +27,7 @@ export const POST = withAuthAndRateLimit('general', async (req, { user, requestI
     watchedAt,
     venue,
     notes: notes ?? null,
+    watchedWithFriendIds: watchedWithFriendIds ?? [],
     createdAt: now,
     updatedAt: now,
   });

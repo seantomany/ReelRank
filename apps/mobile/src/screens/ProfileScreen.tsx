@@ -284,11 +284,16 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                 />
                 <View style={styles.listInfo}>
                   <Text style={styles.movieTitle} numberOfLines={1}>{movie.title ?? 'Unknown'}</Text>
-                  {tab === 'rankings' && item.eloScore != null && (
-                    <Text style={styles.listMeta}>Score: {Math.round(item.eloScore)}</Text>
+                  {tab === 'rankings' && (
+                    <Text style={styles.listMeta}>
+                      {item.eloScore != null ? `Score: ${Math.round(item.eloScore)}` : `#${index + 1} ranked`}
+                    </Text>
                   )}
                   {tab === 'watched' && item.rating != null && (
-                    <Text style={styles.listMeta}>{item.rating}/10 · {item.venue ?? ''}</Text>
+                    <Text style={styles.listMeta}>
+                      {item.rating}/10 · {item.venue ?? ''}
+                      {item.watchedWithFriendIds?.length > 0 ? ` · with ${item.watchedWithFriendIds.length} friend${item.watchedWithFriendIds.length > 1 ? 's' : ''}` : ''}
+                    </Text>
                   )}
                 </View>
                 {tab === 'watchlist' && (

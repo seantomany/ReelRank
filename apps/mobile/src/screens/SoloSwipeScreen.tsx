@@ -141,30 +141,39 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
 
       {!loading && currentIndex < movies.length && (
         <View style={styles.buttons}>
-          <TouchableOpacity
-            style={[styles.circleBtn, styles.passBtnStyle]}
-            onPress={() => deckRef.current?.swipeLeft()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={28} color={colors.pass} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.circleBtn, styles.watchedBtnStyle]}
-            onPress={() => {
-              const m = movies[currentIndex];
-              if (m) navigation.navigate('LogWatched', { movieId: m.id });
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="checkmark" size={24} color={colors.success} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.circleBtn, styles.wantBtnStyle]}
-            onPress={() => deckRef.current?.swipeRight()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="heart" size={26} color={colors.want} />
-          </TouchableOpacity>
+          <View style={styles.btnGroup}>
+            <TouchableOpacity
+              style={[styles.circleBtn, styles.passBtnStyle]}
+              onPress={() => deckRef.current?.swipeLeft()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={26} color={colors.pass} />
+            </TouchableOpacity>
+            <Text style={[styles.btnLabel, { color: colors.pass }]}>Pass</Text>
+          </View>
+          <View style={styles.btnGroup}>
+            <TouchableOpacity
+              style={[styles.circleBtn, styles.watchedBtnStyle]}
+              onPress={() => {
+                const m = movies[currentIndex];
+                if (m) navigation.navigate('LogWatched', { movieId: m.id });
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="eye" size={22} color={colors.success} />
+            </TouchableOpacity>
+            <Text style={[styles.btnLabel, { color: colors.success }]}>Seen</Text>
+          </View>
+          <View style={styles.btnGroup}>
+            <TouchableOpacity
+              style={[styles.circleBtn, styles.wantBtnStyle]}
+              onPress={() => deckRef.current?.swipeRight()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="heart" size={24} color={colors.want} />
+            </TouchableOpacity>
+            <Text style={[styles.btnLabel, { color: colors.want }]}>Want</Text>
+          </View>
         </View>
       )}
 
@@ -179,8 +188,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   );
 }
 
-const CIRCLE_SIZE = 56;
-const CIRCLE_SIZE_SM = 46;
+const CIRCLE_SIZE = 54;
+const CIRCLE_SIZE_SM = 44;
 
 const styles = StyleSheet.create({
   container: {
@@ -241,9 +250,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.lg,
-    paddingBottom: spacing.sm,
+    gap: spacing.xl,
+    paddingBottom: spacing.xs,
     paddingTop: spacing.xs,
+  },
+  btnGroup: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  btnLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   circleBtn: {
     alignItems: 'center',
