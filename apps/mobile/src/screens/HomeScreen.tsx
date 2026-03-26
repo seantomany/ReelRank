@@ -12,6 +12,7 @@ import { Text, Card, Chip, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { registerForPushNotifications, scheduleDailyRecNotification, scheduleWeekendGroupReminder } from '../utils/notifications';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
@@ -29,12 +30,28 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [stats, setStats] = useState({ totalSwipes: 0, moviesWatched: 0, winRate: 0 });
   const [trending, setTrending] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
+  const [dailyRec, setDailyRec] = useState<{ movie: any; reason: string } | null>(null);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
+    setupNotifications();
   }, []);
+
+  const setupNotifications = async () => {
+    try {
+      const pushToken = await registerForPushNotifications();
+      if (pushToken) {
+        const authToken = await getIdToken();
+        await api.users.savePushToken(pushToken, authToken);
+        await scheduleDailyRecNotification();
+        await scheduleWeekendGroupReminder();
+      }
+    } catch (err) {
+      console.log('Notification setup skipped:', err);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -45,10 +62,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const loadData = async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, trendingRes, genresRes] = await Promise.all([
+      const [statsRes, trendingRes, genresRes, recRes] = await Promise.all([
         api.solo.stats(token),
         api.movies.trending(),
         api.movies.genres(),
+        api.solo.dailyRec(token),
       ]);
 
       if (statsRes.data) setStats(statsRes.data as any);
@@ -56,6 +74,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         setTrending((trendingRes.data as any).movies.slice(0, 10));
       }
       if (genresRes.data) setGenres((genresRes.data as any).slice(0, 8));
+      if (recRes.data) setDailyRec(recRes.data as any);
     } catch (error) {
       console.error('Failed to load home data:', error);
       setSnackbar({ visible: true, message: 'Failed to load data. Pull to refresh.' });
@@ -109,6 +128,24 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.actionDesc}>Refine your taste</Text>
         </TouchableOpacity>
       </View>
+
+      {dailyRec && dailyRec.movie && (
+        <TouchableOpacity
+          style={styles.dailyRecCard}
+          onPress={() => navigation.navigate('MovieDetail', { movieId: dailyRec.movie.id })}
+          activeOpacity={0.8}
+        >
+          <OptimizedImage
+            uri={getPosterUrl(dailyRec.movie.posterPath, 'medium')}
+            style={styles.dailyRecPoster}
+          />
+          <View style={styles.dailyRecInfo}>
+            <Text style={styles.dailyRecLabel}>Today's Pick</Text>
+            <Text style={styles.dailyRecTitle} numberOfLines={2}>{dailyRec.movie.title}</Text>
+            <Text style={styles.dailyRecReason} numberOfLines={2}>{dailyRec.reason}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -237,6 +274,44 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: 11,
     textAlign: 'center',
+  },
+  dailyRecCard: {
+    flexDirection: 'row',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  dailyRecPoster: {
+    width: 80,
+    height: 120,
+  },
+  dailyRecInfo: {
+    flex: 1,
+    padding: spacing.md,
+    justifyContent: 'center',
+  },
+  dailyRecLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  dailyRecTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: spacing.xs,
+  },
+  dailyRecReason: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    lineHeight: 16,
   },
   section: {
     marginTop: spacing.lg,

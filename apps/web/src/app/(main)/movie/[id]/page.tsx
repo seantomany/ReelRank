@@ -10,7 +10,46 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
+
+type WatchProvider = { id: number; name: string; logoPath: string };
+
+type MovieProviders = {
+  link: string | null;
+  stream: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+  free: WatchProvider[];
+};
+
+function ProviderGroup({ title, providers }: { title: string; providers: WatchProvider[] }) {
+  if (providers.length === 0) return null;
+  return (
+    <div>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-[#888] mb-2">{title}</h3>
+      <ul className="flex flex-wrap gap-3 list-none p-0 m-0">
+        {providers.map((p) => (
+          <li key={`${title}-${p.id}`} className="flex flex-col items-center gap-1 w-[76px] shrink-0">
+            {p.logoPath ? (
+              <Image
+                src={`https://image.tmdb.org/t/p/w92${p.logoPath}`}
+                alt=""
+                width={46}
+                height={46}
+                className="rounded-md object-contain bg-[#1a1a1a] w-[46px] h-[46px]"
+              />
+            ) : (
+              <div className="w-[46px] h-[46px] rounded-md bg-[#1a1a1a] flex items-center justify-center text-[10px] text-[#666] text-center px-1">
+                —
+              </div>
+            )}
+            <span className="text-[10px] text-[#888] text-center leading-tight line-clamp-2 w-full">{p.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function MovieDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = React.use(props.params as Promise<{ id: string }>);
@@ -20,17 +59,21 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
   const [rank, setRank] = useState<{ rank: number; total: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [providers, setProviders] = useState<MovieProviders | null>(null);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [movieRes, statusRes, rankingsRes] = await Promise.all([
+      const [movieRes, statusRes, rankingsRes, providersRes] = await Promise.all([
         api.movies.get(Number(id)),
         api.solo.status(Number(id)),
         api.solo.ranking(),
+        api.movies.providers(Number(id)),
       ]);
       if (movieRes.data) setMovie(movieRes.data);
       if (statusRes.data) setStatus(statusRes.data);
+      if (providersRes.data) setProviders(providersRes.data);
+      else setProviders(null);
       if (rankingsRes.data) {
         const all = rankingsRes.data;
         const found = all.find((r: SoloRanking) => r.movieId === Number(id));
@@ -183,6 +226,39 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
             </div>
           </div>
         </div>
+
+        {providers &&
+          (providers.stream.length > 0 ||
+            providers.rent.length > 0 ||
+            providers.buy.length > 0 ||
+            providers.free.length > 0 ||
+            providers.link) && (
+            <section className="mt-10 pt-8 border-t border-[#222]" aria-labelledby="where-to-watch-heading">
+              <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 mb-4">
+                <h2 id="where-to-watch-heading" className="text-sm font-semibold text-[#e8e8e8]">
+                  Where to Watch
+                </h2>
+                <p className="text-xs text-[#666]">United States</p>
+              </div>
+              <div className="space-y-5">
+                <ProviderGroup title="Stream" providers={providers.stream} />
+                <ProviderGroup title="Rent" providers={providers.rent} />
+                <ProviderGroup title="Buy" providers={providers.buy} />
+                <ProviderGroup title="Free" providers={providers.free} />
+              </div>
+              {providers.link && (
+                <a
+                  href={providers.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-5 text-sm text-[#ff2d55] hover:underline"
+                >
+                  More options on TMDB
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                </a>
+              )}
+            </section>
+          )}
       </div>
     </motion.div>
   );

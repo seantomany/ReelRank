@@ -93,9 +93,14 @@ export function GroupScreen({ navigation }: GroupScreenProps) {
               >
                 <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[item.status] ?? colors.textTertiary }]} />
                 <View style={styles.historyInfo}>
-                  <Text style={styles.roomCode}>{item.code}</Text>
+                  <Text style={styles.roomCode}>{item.name || item.code}</Text>
                   <Text style={styles.historyMeta}>
-                    {item.memberCount} members · {item.status}
+                    {item.name ? `${item.code} · ` : ''}{item.memberCount} members · {item.status}
+                  </Text>
+                </View>
+                <View style={styles.statusBadge}>
+                  <Text style={[styles.statusText, { color: STATUS_COLORS[item.status] ?? colors.textTertiary }]}>
+                    {item.status === 'results' ? 'Done' : item.status === 'lobby' ? 'Open' : item.status}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
@@ -183,5 +188,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     marginTop: 2,
+  },
+  statusBadge: {
+    marginRight: spacing.sm,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions, Linking, TouchableOpacity } from 'react-native';
 import { Text, Button, Chip, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -13,6 +13,21 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+
+interface Provider {
+  id: number;
+  name: string;
+  logoPath: string;
+}
+
+interface ProvidersData {
+  link: string | null;
+  stream: Provider[];
+  rent: Provider[];
+  buy: Provider[];
+  free: Provider[];
+}
 
 interface MovieDetailScreenProps {
   navigation: NativeStackNavigationProp<any>;
@@ -24,6 +39,7 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
   const { getIdToken } = useAuth();
   const [movie, setMovie] = useState<Movie | null>(null);
   const [status, setStatus] = useState<MovieUserStatus | null>(null);
+  const [providers, setProviders] = useState<ProvidersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
@@ -35,12 +51,14 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
     setLoading(true);
     try {
       const token = await getIdToken();
-      const [movieRes, statusRes] = await Promise.all([
+      const [movieRes, statusRes, provRes] = await Promise.all([
         api.movies.getMovie(movieId),
         api.solo.status(movieId, token),
+        api.movies.getProviders(movieId),
       ]);
       if (movieRes.data) setMovie(movieRes.data as Movie);
       if (statusRes.data) setStatus(statusRes.data as MovieUserStatus);
+      if (provRes.data) setProviders(provRes.data as ProvidersData);
     } catch (error) {
       console.error('Failed to load movie:', error);
       setSnackbar({ visible: true, message: 'Failed to load movie details' });
@@ -73,6 +91,13 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
 
   const isWanted = status?.swipeDirection === 'right';
   const isWatched = !!status?.watched;
+
+  const hasProviders = providers && (
+    providers.stream.length > 0 ||
+    providers.rent.length > 0 ||
+    providers.buy.length > 0 ||
+    providers.free.length > 0
+  );
 
   return (
     <ScrollView style={styles.container}>
@@ -119,9 +144,38 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
           </Button>
         </View>
 
+        {hasProviders && (
+          <View style={styles.providersSection}>
+            <Text style={styles.sectionTitle}>Where to Watch</Text>
+            {providers!.stream.length > 0 && (
+              <ProviderRow label="Stream" items={providers!.stream} />
+            )}
+            {providers!.free.length > 0 && (
+              <ProviderRow label="Free" items={providers!.free} />
+            )}
+            {providers!.rent.length > 0 && (
+              <ProviderRow label="Rent" items={providers!.rent} />
+            )}
+            {providers!.buy.length > 0 && (
+              <ProviderRow label="Buy" items={providers!.buy} />
+            )}
+            {providers!.link && (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(providers!.link!)}
+                style={styles.tmdbLink}
+              >
+                <Text style={styles.tmdbLinkText}>View all options on TMDB</Text>
+                <Ionicons name="open-outline" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>Overview</Text>
         <Text style={styles.overview}>{movie.overview}</Text>
       </View>
+
+      <View style={{ height: spacing.xxl }} />
 
       <Snackbar
         visible={snackbar.visible}
@@ -131,6 +185,25 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
         {snackbar.message}
       </Snackbar>
     </ScrollView>
+  );
+}
+
+function ProviderRow({ label, items }: { label: string; items: Provider[] }) {
+  return (
+    <View style={styles.providerRow}>
+      <Text style={styles.providerLabel}>{label}</Text>
+      <View style={styles.providerLogos}>
+        {items.slice(0, 6).map((p) => (
+          <View key={p.id} style={styles.providerItem}>
+            <OptimizedImage
+              uri={`${TMDB_IMG}${p.logoPath}`}
+              style={styles.providerLogo}
+            />
+            <Text style={styles.providerName} numberOfLines={1}>{p.name}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -204,5 +277,49 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  providersSection: {
+    marginTop: spacing.md,
+  },
+  providerRow: {
+    marginBottom: spacing.md,
+  },
+  providerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  providerLogos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  providerItem: {
+    alignItems: 'center',
+    width: 56,
+  },
+  providerLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+  },
+  providerName: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  tmdbLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  tmdbLinkText: {
+    fontSize: 13,
+    color: colors.primary,
   },
 });

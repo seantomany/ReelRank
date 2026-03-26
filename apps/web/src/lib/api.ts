@@ -133,6 +133,14 @@ export const api = {
         `/api/movies/${id}`,
         120_000
       ),
+    providers: (id: number) =>
+      cachedGet<{
+        link: string | null;
+        stream: { id: number; name: string; logoPath: string }[];
+        rent: { id: number; name: string; logoPath: string }[];
+        buy: { id: number; name: string; logoPath: string }[];
+        free: { id: number; name: string; logoPath: string }[];
+      }>(`/api/movies/${id}/providers`, 300_000),
   },
   solo: {
     swipe: (movieId: number, direction: "left" | "right") =>

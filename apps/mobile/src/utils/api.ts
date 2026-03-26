@@ -81,6 +81,8 @@ export const api = {
       cachedGet(`/api/movies/discover?genre=${genre}&page=${page}`),
     getMovie: (id: number) =>
       cachedGet(`/api/movies/${id}`),
+    getProviders: (id: number) =>
+      cachedGet(`/api/movies/${id}/providers`),
   },
 
   solo: {
@@ -100,6 +102,8 @@ export const api = {
       apiFetch('/api/solo/watched', { method: 'POST', body: data, token }),
     getWatched: (token: string) =>
       apiFetch('/api/solo/watched', { token }),
+    dailyRec: (token: string) =>
+      apiFetch('/api/solo/daily-rec', { token }),
   },
 
   rooms: {
@@ -113,6 +117,8 @@ export const api = {
       apiFetch(`/api/rooms/${code}`, { token }),
     submit: (code: string, movieId: number, token: string) =>
       apiFetch(`/api/rooms/${code}/submit`, { method: 'POST', body: { movieId }, token }),
+    removeMovie: (code: string, movieId: number, token: string) =>
+      apiFetch(`/api/rooms/${code}/submit`, { method: 'DELETE', body: { movieId }, token }),
     start: (code: string, phase: string, token: string) =>
       apiFetch(`/api/rooms/${code}/start`, { method: 'POST', body: { phase }, token }),
     swipe: (code: string, movieId: number, direction: string, token: string) =>
@@ -121,5 +127,29 @@ export const api = {
       apiFetch(`/api/rooms/${code}/results`, { token }),
     leave: (code: string, token: string) =>
       apiFetch(`/api/rooms/${code}/leave`, { method: 'POST', token }),
+  },
+
+  users: {
+    savePushToken: (pushToken: string, token: string) =>
+      apiFetch('/api/users/push-token', { method: 'POST', body: { pushToken }, token }),
+  },
+
+  social: {
+    searchUsers: (query: string, token: string) =>
+      apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`, { token }),
+    getFriends: (token: string) =>
+      apiFetch('/api/social/friends', { token }),
+    getRequests: (token: string) =>
+      apiFetch('/api/social/requests', { token }),
+    sendRequest: (toUserId: string, token: string) =>
+      apiFetch('/api/social/requests', { method: 'POST', body: { toUserId }, token }),
+    handleRequest: (requestId: string, action: 'accept' | 'reject', token: string) =>
+      apiFetch('/api/social/requests', { method: 'PATCH', body: { requestId, action }, token }),
+    getFriendProfile: (userId: string, token: string) =>
+      apiFetch(`/api/social/profile/${userId}`, { token }),
+    getComments: (watchedId: string, token: string) =>
+      apiFetch(`/api/social/comments?watchedId=${watchedId}`, { token }),
+    addComment: (watchedId: string, targetUserId: string, text: string, token: string) =>
+      apiFetch('/api/social/comments', { method: 'POST', body: { watchedId, targetUserId, text }, token }),
   },
 };

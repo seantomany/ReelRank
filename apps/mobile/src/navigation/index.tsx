@@ -22,6 +22,9 @@ import { SubmitMoviesScreen } from '../screens/SubmitMoviesScreen';
 import { GroupSwipeScreen } from '../screens/GroupSwipeScreen';
 import { GroupResultsScreen } from '../screens/GroupResultsScreen';
 import { OnboardingScreen, hasSeenOnboarding } from '../screens/OnboardingScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { FriendsScreen } from '../screens/FriendsScreen';
+import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -112,6 +115,9 @@ export function AppNavigator() {
             <Stack.Screen name="SubmitMovies" component={SubmitMoviesScreen} options={{ title: 'Submit Movies', headerBackTitle: 'Lobby' }} />
             <Stack.Screen name="GroupSwipe" component={GroupSwipeScreen} options={{ title: 'Group Swipe', headerBackTitle: 'Back' }} />
             <Stack.Screen name="GroupResults" component={GroupResultsScreen} options={{ title: 'Results', headerBackTitle: 'Back' }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', headerBackTitle: 'Profile' }} />
+            <Stack.Screen name="Friends" component={FriendsScreen} options={{ title: 'Friends', headerBackTitle: 'Profile' }} />
+            <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ title: 'Profile', headerBackTitle: 'Friends' }} />
           </>
         )}
       </Stack.Navigator>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Button, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +47,30 @@ export function SubmitMoviesScreen({ navigation, route }: SubmitMoviesScreenProp
       console.error('Failed to submit movie:', error);
       setSnackbar({ visible: true, message: 'Failed to submit movie' });
     }
+  }, [roomCode, getIdToken]);
+
+  const handleRemoveMovie = useCallback(async (movieId: number, title: string) => {
+    Alert.alert('Remove Movie', `Remove "${title}" from the pool?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await getIdToken();
+            const res = await api.rooms.removeMovie(roomCode, movieId, token);
+            if (res.error) {
+              setSnackbar({ visible: true, message: res.error });
+            } else {
+              setSnackbar({ visible: true, message: 'Movie removed' });
+            }
+          } catch (error) {
+            console.error('Failed to remove movie:', error);
+            setSnackbar({ visible: true, message: 'Failed to remove movie' });
+          }
+        },
+      },
+    ]);
   }, [roomCode, getIdToken]);
 
   const handleStartSwiping = useCallback(async () => {
@@ -97,6 +121,15 @@ export function SubmitMoviesScreen({ navigation, route }: SubmitMoviesScreenProp
               <Text style={styles.movieTitle} numberOfLines={1}>
                 {movie?.title ?? `Movie #${item.movieId}`}
               </Text>
+              {(item.submittedByUserId === authUser?.uid || isHost) && (
+                <TouchableOpacity
+                  onPress={() => handleRemoveMovie(item.movieId, movie?.title ?? 'this movie')}
+                  style={styles.removeButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={22} color={colors.error} />
+                </TouchableOpacity>
+              )}
             </View>
           );
         }}
@@ -179,6 +212,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginLeft: spacing.md,
     flex: 1,
+  },
+  removeButton: {
+    padding: spacing.xs,
   },
   emptyState: {
     alignItems: 'center',

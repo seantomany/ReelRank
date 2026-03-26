@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Button, Snackbar } from 'react-native-paper';
+import { Text, Button, TextInput, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -13,6 +13,7 @@ interface CreateRoomScreenProps {
 
 export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
   const { getIdToken } = useAuth();
+  const [roomName, setRoomName] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
@@ -20,7 +21,10 @@ export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
     setLoading(true);
     try {
       const token = await getIdToken();
-      const res = await api.rooms.create({}, token);
+      const res = await api.rooms.create(
+        { ...(roomName.trim() ? { name: roomName.trim() } : {}) },
+        token,
+      );
       if (res.data && typeof res.data === 'object' && 'code' in res.data) {
         navigation.replace('Lobby', { roomCode: (res.data as any).code });
       } else if (res.error) {
@@ -41,9 +45,20 @@ export function CreateRoomScreen({ navigation }: CreateRoomScreenProps) {
         <Text style={styles.title}>Create a Room</Text>
         <Text style={styles.description}>
           Start a movie night session! You'll get a unique code that your friends can use to join.
-          {'\n\n'}
-          Once everyone's in, submit movies to the pool and swipe to vote. The app will figure out the best pick for the group!
         </Text>
+
+        <TextInput
+          mode="outlined"
+          label="Room Name (optional)"
+          value={roomName}
+          onChangeText={setRoomName}
+          placeholder="e.g. Friday Movie Night"
+          maxLength={50}
+          style={styles.nameInput}
+          textColor={colors.text}
+          outlineColor={colors.border}
+          activeOutlineColor={colors.primary}
+        />
 
         <Button
           mode="contained"
@@ -91,8 +106,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  nameInput: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    marginTop: spacing.sm,
+  },
   button: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: colors.primary,
     width: '100%',

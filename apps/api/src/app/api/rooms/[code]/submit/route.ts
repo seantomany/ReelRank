@@ -6,6 +6,48 @@ import { publishToRoom } from '@/lib/ably';
 import { SubmitMovieInputSchema, ROOM_MAX_MOVIES, ABLY_EVENTS } from '@reelrank/shared';
 import { ApiError } from '@/lib/errors';
 
+export const DELETE = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId, params }) => {
+  const code = validateRoomCode(params?.code ?? '', requestId);
+  const body = await parseJsonBody<unknown>(req, requestId);
+  const parsed = SubmitMovieInputSchema.safeParse(body);
+
+  if (!parsed.success) {
+    throw new ApiError(400, parsed.error.errors[0]?.message ?? 'Invalid input', requestId);
+  }
+
+  const { roomId, room } = await findRoomByCode(code, requestId);
+  await verifyRoomMembership(roomId, user.id, requestId);
+
+  if (room.status !== 'submitting') {
+    throw new ApiError(400, 'Room is not accepting changes to submissions', requestId);
+  }
+
+  const movieDocId = String(parsed.data.movieId);
+  const movieRef = getDb().collection(COLLECTIONS.rooms).doc(roomId).collection('movies').doc(movieDocId);
+  const movieDoc = await movieRef.get();
+
+  if (!movieDoc.exists) {
+    throw new ApiError(404, 'Movie not found in room', requestId);
+  }
+
+  if (movieDoc.data()?.submittedByUserId !== user.id && room.hostId !== user.id) {
+    throw new ApiError(403, 'You can only remove movies you submitted', requestId);
+  }
+
+  await movieRef.delete();
+
+  await publishToRoom(room.code, ABLY_EVENTS.MOVIE_SUBMITTED, {
+    movieId: parsed.data.movieId,
+    removed: true,
+    removedBy: user.id,
+  });
+
+  return NextResponse.json({
+    data: { movieId: parsed.data.movieId, removed: true },
+    requestId,
+  });
+});
+
 export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId, params }) => {
   const code = validateRoomCode(params?.code ?? '', requestId);
   const body = await parseJsonBody<unknown>(req, requestId);

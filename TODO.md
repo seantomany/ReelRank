@@ -8,18 +8,18 @@
 ## Feature Improvements
 - [x] Make the date optional when logging a watched movie ✅
 - [x] Pairwise comparisons: reduce from 10 to 5 at a time ✅
-- [ ] Add a way to rank your watchlist (casual drag-and-drop or similar)
-- [ ] I want to implement the where can I stream it so we can see where to find these movies
-- [ ] I want to add a social aspect - very important. I want you to be able to add friends, see what those friends have rated movies, see a little of their baseline stats, and then I want a way to comment on their ratings. I have one friend with bad movie takes so I want to call him out
-- [ ] add a way in group mode to remove a selection that you made accidentally
-- [ ] Maybe some sort of daily recommmendation - and a reason of why you would like it
-- [ ] for the app, I want notifications that make sense. Maybe when your friend sees a movie, or a daily movie rec or on the weekends be like 'it is time for your weekly meet up with XXXXXX, here is a good rec for the group
-- [ ] I want group stats within the group mode so you can see what you chose previously as a group - there should be a way to have the continuous so for people they do not need to keep making new groups
-- [ ] I want a dedicated settings page from the profile - just the usual
-- [ ] name groups if not already added in
+- [x] Add a way to rank your watchlist (casual up/down reordering on mobile) ✅
+- [x] Where can I stream it — show streaming providers via TMDB on movie detail page ✅
+- [x] Social: add friends, see their ratings, comment on their takes ✅
+- [x] Add a way in group mode to remove a movie selection you made accidentally ✅
+- [x] Daily recommendation with personalized reasoning on home screen ✅
+- [x] Push notifications: daily rec reminders, weekend group session reminders ✅
+- [x] Group stats and persistent groups — room history with status badges, room names ✅
+- [x] Dedicated settings page from profile (account info, notification toggles, privacy, sign out) ✅
+- [x] Name groups when creating rooms ✅
 
 ## Documentation
-- [ ] Create a tech stack / tools breakdown markdown file for interview prep (all tools, frameworks, APIs, and why each was chosen)
+- [x] Create a tech stack / tools breakdown markdown file for interview prep (TECH_STACK.md) ✅
 
 ## Ideas / Backlog
 - *(Add future ideas here)*

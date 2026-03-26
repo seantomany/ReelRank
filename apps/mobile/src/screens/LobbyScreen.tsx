@@ -90,6 +90,7 @@ export function LobbyScreen({ navigation, route }: LobbyScreenProps) {
         }}
         activeOpacity={0.7}
       >
+        {room.name ? <Text style={styles.roomName}>{room.name}</Text> : null}
         <Text style={styles.codeLabel}>Room Code</Text>
         <View style={styles.codeRow}>
           <Text style={styles.code}>{room.code}</Text>
@@ -160,6 +161,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.xxl,
     paddingBottom: spacing.lg,
+  },
+  roomName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   codeLabel: {
     color: colors.textSecondary,

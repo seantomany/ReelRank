@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Text, Avatar, Button, SegmentedButtons, Snackbar, ActivityIndicator } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -84,6 +85,12 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         }
       >
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.settingsGear}
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
           {user?.photoURL ? (
             <Avatar.Image size={80} source={{ uri: user.photoURL }} />
           ) : (
@@ -91,6 +98,13 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           )}
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
+          <TouchableOpacity
+            style={styles.friendsButton}
+            onPress={() => navigation.navigate('Friends')}
+          >
+            <Ionicons name="people-outline" size={18} color={colors.primary} />
+            <Text style={styles.friendsButtonText}>Friends</Text>
+          </TouchableOpacity>
         </View>
 
         {stats && (
@@ -158,18 +172,47 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                     <Text style={styles.listMeta}>{item.rating}/10 · {item.venue}</Text>
                   )}
                 </View>
+                {tab === 'watchlist' && (
+                  <View style={styles.reorderButtons}>
+                    {index > 0 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const newData = [...tabData];
+                          [newData[index - 1], newData[index]] = [newData[index], newData[index - 1]];
+                          setTabData(newData);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="chevron-up" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                    {index < tabData.length - 1 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const newData = [...tabData];
+                          [newData[index], newData[index + 1]] = [newData[index + 1], newData[index]];
+                          setTabData(newData);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })
         )}
 
         <Button
-          mode="outlined"
-          onPress={signOut}
-          style={styles.signOutButton}
-          textColor={colors.error}
+          mode="text"
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.settingsButton}
+          icon={() => <Ionicons name="settings-outline" size={18} color={colors.textSecondary} />}
+          textColor={colors.textSecondary}
         >
-          Sign Out
+          Settings
         </Button>
 
         <View style={{ height: spacing.xxl }} />
@@ -266,14 +309,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  reorderButtons: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    marginLeft: spacing.sm,
+  },
   emptyText: {
     color: colors.textSecondary,
     textAlign: 'center',
     padding: spacing.xl,
   },
-  signOutButton: {
+  friendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+  },
+  friendsButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  settingsGear: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    padding: spacing.sm,
+    zIndex: 10,
+  },
+  settingsButton: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
-    borderColor: colors.error,
   },
 });

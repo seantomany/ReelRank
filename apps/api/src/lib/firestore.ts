@@ -17,4 +17,7 @@ export const COLLECTIONS = {
   watchedMovies: 'watchedMovies',
   rankedLists: 'rankedLists',
   rooms: 'rooms',
+  friendships: 'friendships',
+  friendRequests: 'friendRequests',
+  ratingComments: 'ratingComments',
 } as const;
