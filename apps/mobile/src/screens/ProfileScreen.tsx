@@ -15,7 +15,7 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
-  const { user, signOut, getIdToken } = useAuth();
+  const { user, getIdToken } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [tab, setTab] = useState('rankings');
   const [tabData, setTabData] = useState<any[]>([]);

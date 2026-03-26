@@ -4,29 +4,33 @@ import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { ApiError } from '@/lib/errors';
 
 export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { user, requestId }) => {
-  const snap = await getDb()
-    .collection(COLLECTIONS.friendRequests)
-    .where('toUserId', '==', user.id)
-    .where('status', '==', 'pending')
-    .orderBy('createdAt', 'desc')
-    .limit(50)
-    .get();
+  try {
+    const snap = await getDb()
+      .collection(COLLECTIONS.friendRequests)
+      .where('toUserId', '==', user.id)
+      .where('status', '==', 'pending')
+      .limit(50)
+      .get();
 
-  const requests = [];
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    const fromUser = await getDb().collection(COLLECTIONS.users).doc(d.fromUserId).get();
-    const fu = fromUser.data();
-    requests.push({
-      id: doc.id,
-      fromUserId: d.fromUserId,
-      fromDisplayName: fu?.displayName ?? fu?.username ?? fu?.email?.split('@')[0] ?? 'Unknown',
-      fromPhotoUrl: fu?.photoUrl ?? null,
-      createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt,
-    });
+    const requests = [];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const fromUser = await getDb().collection(COLLECTIONS.users).doc(d.fromUserId).get();
+      const fu = fromUser.data();
+      requests.push({
+        id: doc.id,
+        fromUserId: d.fromUserId,
+        fromDisplayName: fu?.displayName ?? fu?.username ?? fu?.email?.split('@')[0] ?? 'Unknown',
+        fromPhotoUrl: fu?.photoUrl ?? null,
+        createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt,
+      });
+    }
+
+    return NextResponse.json({ data: requests, requestId });
+  } catch (error) {
+    console.error('Failed to fetch friend requests:', error);
+    return NextResponse.json({ data: [], requestId });
   }
-
-  return NextResponse.json({ data: requests, requestId });
 });
 
 export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId }) => {
@@ -100,13 +104,14 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
 
 export const PATCH = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId }) => {
   const body = await req.json().catch(() => null);
-  const { requestId: reqId, action } = body ?? {};
+  const friendReqId = body?.requestId;
+  const action = body?.action;
 
-  if (!reqId || !['accept', 'reject'].includes(action)) {
+  if (!friendReqId || !['accept', 'reject'].includes(action)) {
     throw new ApiError(400, 'requestId and action (accept|reject) required', requestId);
   }
 
-  const reqDoc = await getDb().collection(COLLECTIONS.friendRequests).doc(reqId).get();
+  const reqDoc = await getDb().collection(COLLECTIONS.friendRequests).doc(friendReqId).get();
   if (!reqDoc.exists) {
     throw new ApiError(404, 'Request not found', requestId);
   }

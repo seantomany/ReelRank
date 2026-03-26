@@ -9,29 +9,33 @@ export const GET = withAuthAndRateLimit('general', async (req: NextRequest, { us
     throw new ApiError(400, 'watchedId is required', requestId);
   }
 
-  const snap = await getDb()
-    .collection(COLLECTIONS.ratingComments)
-    .where('watchedId', '==', watchedId)
-    .orderBy('createdAt', 'desc')
-    .limit(50)
-    .get();
+  try {
+    const snap = await getDb()
+      .collection(COLLECTIONS.ratingComments)
+      .where('watchedId', '==', watchedId)
+      .limit(50)
+      .get();
 
-  const comments = [];
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    const authorDoc = await getDb().collection(COLLECTIONS.users).doc(d.authorId).get();
-    const author = authorDoc.data();
-    comments.push({
-      id: doc.id,
-      text: d.text,
-      authorId: d.authorId,
-      authorName: author?.displayName ?? author?.username ?? 'Unknown',
-      authorPhoto: author?.photoUrl ?? null,
-      createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt,
-    });
+    const comments = [];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const authorDoc = await getDb().collection(COLLECTIONS.users).doc(d.authorId).get();
+      const author = authorDoc.data();
+      comments.push({
+        id: doc.id,
+        text: d.text,
+        authorId: d.authorId,
+        authorName: author?.displayName ?? author?.username ?? 'Unknown',
+        authorPhoto: author?.photoUrl ?? null,
+        createdAt: d.createdAt?.toDate?.()?.toISOString() ?? d.createdAt,
+      });
+    }
+
+    return NextResponse.json({ data: comments, requestId });
+  } catch (error) {
+    console.error('Failed to fetch comments:', error);
+    return NextResponse.json({ data: [], requestId });
   }
-
-  return NextResponse.json({ data: comments, requestId });
 });
 
 export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId }) => {

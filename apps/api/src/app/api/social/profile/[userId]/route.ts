@@ -10,15 +10,20 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
     throw new ApiError(400, 'userId is required', requestId);
   }
 
-  const friendships = await getDb()
-    .collection(COLLECTIONS.friendships)
-    .where('userIds', 'array-contains', user.id)
-    .get();
-  const isFriend = friendships.docs.some((d) =>
-    (d.data().userIds as string[]).includes(targetUserId)
-  );
-  if (!isFriend && targetUserId !== user.id) {
-    throw new ApiError(403, 'You can only view profiles of friends', requestId);
+  try {
+    const friendships = await getDb()
+      .collection(COLLECTIONS.friendships)
+      .where('userIds', 'array-contains', user.id)
+      .get();
+    const isFriend = friendships.docs.some((d) =>
+      (d.data().userIds as string[]).includes(targetUserId)
+    );
+    if (!isFriend && targetUserId !== user.id) {
+      throw new ApiError(403, 'You can only view profiles of friends', requestId);
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.error('Failed to check friendship:', error);
   }
 
   const targetDoc = await getDb().collection(COLLECTIONS.users).doc(targetUserId).get();
@@ -27,33 +32,43 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
     throw new ApiError(404, 'User not found', requestId);
   }
 
-  const [swipesSnap, watchedSnap] = await Promise.all([
-    getDb().collection(COLLECTIONS.soloSwipes)
+  let totalSwipes = 0;
+  let rightSwipes = 0;
+  let moviesWatched = 0;
+  const recentWatched: any[] = [];
+
+  try {
+    const swipesSnap = await getDb().collection(COLLECTIONS.soloSwipes)
       .where('userId', '==', targetUserId)
-      .get(),
-    getDb().collection(COLLECTIONS.watchedMovies)
+      .get();
+    totalSwipes = swipesSnap.size;
+    rightSwipes = swipesSnap.docs.filter((d) => d.data().direction === 'right').length;
+  } catch {
+    // ignore index errors
+  }
+
+  try {
+    const watchedSnap = await getDb().collection(COLLECTIONS.watchedMovies)
       .where('userId', '==', targetUserId)
-      .orderBy('createdAt', 'desc')
       .limit(10)
-      .get(),
-  ]);
+      .get();
+    moviesWatched = watchedSnap.size;
 
-  const totalSwipes = swipesSnap.size;
-  const rightSwipes = swipesSnap.docs.filter((d) => d.data().direction === 'right').length;
-
-  const recentWatched = [];
-  for (const doc of watchedSnap.docs) {
-    const d = doc.data();
-    const { movie } = await safeGetMovieById(d.movieId);
-    recentWatched.push({
-      movieId: d.movieId,
-      movie,
-      rating: d.rating,
-      watchedAt: d.watchedAt,
-      venue: d.venue,
-      notes: d.notes ?? null,
-      id: doc.id,
-    });
+    for (const doc of watchedSnap.docs) {
+      const d = doc.data();
+      const { movie } = await safeGetMovieById(d.movieId);
+      recentWatched.push({
+        movieId: d.movieId,
+        movie,
+        rating: d.rating,
+        watchedAt: d.watchedAt,
+        venue: d.venue,
+        notes: d.notes ?? null,
+        id: doc.id,
+      });
+    }
+  } catch {
+    // ignore index errors
   }
 
   return NextResponse.json({
@@ -64,7 +79,7 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
       stats: {
         totalSwipes,
         likeRate: totalSwipes > 0 ? Math.round((rightSwipes / totalSwipes) * 100) : 0,
-        moviesWatched: watchedSnap.size,
+        moviesWatched,
       },
       recentWatched,
     },

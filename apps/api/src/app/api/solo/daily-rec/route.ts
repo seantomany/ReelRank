@@ -12,24 +12,32 @@ const GENRE_NAMES: Record<number, string> = {
 
 export const GET = withAuth(async (_req: NextRequest, { user, requestId }) => {
   const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `dailyrec_${user.id}_${today}`;
 
-  const swipesSnap = await getDb()
-    .collection(COLLECTIONS.soloSwipes)
-    .where('userId', '==', user.id)
-    .where('direction', '==', 'right')
-    .orderBy('createdAt', 'desc')
-    .limit(20)
-    .get();
+  let likedMovieIds: number[] = [];
+  const allSeenIds = new Set<number>();
 
-  const likedMovieIds = swipesSnap.docs.map((d) => d.data().movieId as number);
+  try {
+    const swipesSnap = await getDb()
+      .collection(COLLECTIONS.soloSwipes)
+      .where('userId', '==', user.id)
+      .where('direction', '==', 'right')
+      .limit(20)
+      .get();
+    likedMovieIds = swipesSnap.docs.map((d) => d.data().movieId as number);
+    likedMovieIds.forEach((id) => allSeenIds.add(id));
+  } catch {
+    // index may not exist yet
+  }
 
-  const watchedSnap = await getDb()
-    .collection(COLLECTIONS.watchedMovies)
-    .where('userId', '==', user.id)
-    .get();
-  const watchedIds = new Set(watchedSnap.docs.map((d) => d.data().movieId as number));
-  const allSeenIds = new Set([...likedMovieIds, ...watchedIds]);
+  try {
+    const watchedSnap = await getDb()
+      .collection(COLLECTIONS.watchedMovies)
+      .where('userId', '==', user.id)
+      .get();
+    watchedSnap.docs.forEach((d) => allSeenIds.add(d.data().movieId as number));
+  } catch {
+    // ignore
+  }
 
   let recMovie = null;
   let reason = '';
