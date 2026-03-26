@@ -31,10 +31,6 @@ export function SkeletonCard() {
     <View style={styles.container}>
       <Animated.View style={[styles.card, { width: cardWidth, height: cardHeight }, animatedStyle]}>
         <View style={styles.poster} />
-        <View style={styles.content}>
-          <View style={styles.titleBar} />
-          <View style={styles.subtitleBar} />
-        </View>
       </Animated.View>
     </View>
   );
@@ -42,32 +38,17 @@ export function SkeletonCard() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   card: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.surfaceVariant,
     overflow: 'hidden',
   },
   poster: {
     flex: 1,
     backgroundColor: colors.border,
-  },
-  content: {
-    padding: 14,
-    gap: 8,
-  },
-  titleBar: {
-    height: 18,
-    width: '65%',
-    backgroundColor: colors.border,
-    borderRadius: borderRadius.sm,
-  },
-  subtitleBar: {
-    height: 12,
-    width: '35%',
-    backgroundColor: colors.border,
-    borderRadius: borderRadius.sm,
   },
 });

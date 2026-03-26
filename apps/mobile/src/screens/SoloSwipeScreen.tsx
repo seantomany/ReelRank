@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Text, Chip, Snackbar } from 'react-native-paper';
+import { Text, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
@@ -32,14 +32,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const deckRef = useRef<SwipeDeckRef>(null);
 
-  useEffect(() => {
-    loadGenres();
-  }, []);
-
-  useEffect(() => {
-    setPage(1);
-    loadMovies(1);
-  }, [selectedGenre]);
+  useEffect(() => { loadGenres(); }, []);
+  useEffect(() => { setPage(1); loadMovies(1); }, [selectedGenre]);
 
   const loadGenres = async () => {
     const res = await api.movies.genres();
@@ -49,12 +43,9 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const loadMovies = async (p = page) => {
     setLoading(true);
     try {
-      let res;
-      if (selectedGenre) {
-        res = await api.movies.discover(selectedGenre, p);
-      } else {
-        res = await api.movies.trending(p);
-      }
+      const res = selectedGenre
+        ? await api.movies.discover(selectedGenre, p)
+        : await api.movies.trending(p);
       if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
         const fresh = ((res.data as any).movies as Movie[]).filter(
           (m) => !seenMovieIds.has(m.id)
@@ -62,18 +53,11 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
         setMovies(fresh);
         setCurrentIndex(0);
       }
-    } catch (error) {
-      console.error('Failed to load movies:', error);
+    } catch {
       setSnackbar({ visible: true, message: 'Failed to load movies' });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLoadMore = () => {
-    const next = page + 1;
-    setPage(next);
-    loadMovies(next);
   };
 
   const handleSwipe = useCallback(async (movie: Movie, direction: SwipeDirection) => {
@@ -83,48 +67,48 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     try {
       const token = await getIdToken();
       await api.solo.swipe(movie.id, direction, token);
-    } catch (error) {
-      console.error('Failed to record swipe:', error);
-      setSnackbar({ visible: true, message: 'Failed to save swipe. Please try again.' });
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to save swipe.' });
     }
   }, [getIdToken]);
 
   return (
     <View style={styles.container}>
+      {/* Thin genre bar */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.genreBar}
       >
-        <Chip
-          selected={!selectedGenre}
+        <TouchableOpacity
+          style={[styles.pill, !selectedGenre && styles.pillActive]}
           onPress={() => setSelectedGenre(null)}
-          style={[styles.genreChip, !selectedGenre && styles.genreChipSelected]}
-          textStyle={[styles.chipText, !selectedGenre && styles.chipTextSelected]}
         >
-          Trending
-        </Chip>
+          <Text style={[styles.pillText, !selectedGenre && styles.pillTextActive]}>Trending</Text>
+        </TouchableOpacity>
         {genres.map((g) => (
-          <Chip
+          <TouchableOpacity
             key={g.id}
-            selected={selectedGenre === g.id}
+            style={[styles.pill, selectedGenre === g.id && styles.pillActive]}
             onPress={() => setSelectedGenre(g.id)}
-            style={[styles.genreChip, selectedGenre === g.id && styles.genreChipSelected]}
-            textStyle={[styles.chipText, selectedGenre === g.id && styles.chipTextSelected]}
           >
-            {g.name}
-          </Chip>
+            <Text style={[styles.pillText, selectedGenre === g.id && styles.pillTextActive]}>{g.name}</Text>
+          </TouchableOpacity>
         ))}
       </ScrollView>
 
-      <View style={styles.deckContainer}>
+      {/* Card area */}
+      <View style={styles.deckArea}>
         {loading ? (
           <SkeletonCard />
         ) : currentIndex >= movies.length ? (
           <View style={styles.emptyState}>
-            <Ionicons name="film-outline" size={56} color={colors.textTertiary} />
-            <Text style={styles.emptyText}>No more movies!</Text>
-            <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore}>
+            <Ionicons name="film-outline" size={48} color={colors.textTertiary} />
+            <Text style={styles.emptyText}>No more movies</Text>
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => { const n = page + 1; setPage(n); loadMovies(n); }}
+            >
               <Text style={styles.loadMoreText}>Load More</Text>
             </TouchableOpacity>
           </View>
@@ -139,41 +123,30 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
         )}
       </View>
 
+      {/* Action buttons */}
       {!loading && currentIndex < movies.length && (
-        <View style={styles.buttons}>
-          <View style={styles.btnGroup}>
-            <TouchableOpacity
-              style={[styles.circleBtn, styles.passBtnStyle]}
-              onPress={() => deckRef.current?.swipeLeft()}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={26} color={colors.pass} />
-            </TouchableOpacity>
-            <Text style={[styles.btnLabel, { color: colors.pass }]}>Pass</Text>
-          </View>
-          <View style={styles.btnGroup}>
-            <TouchableOpacity
-              style={[styles.circleBtn, styles.watchedBtnStyle]}
-              onPress={() => {
-                const m = movies[currentIndex];
-                if (m) navigation.navigate('LogWatched', { movieId: m.id });
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="eye" size={22} color={colors.success} />
-            </TouchableOpacity>
-            <Text style={[styles.btnLabel, { color: colors.success }]}>Seen</Text>
-          </View>
-          <View style={styles.btnGroup}>
-            <TouchableOpacity
-              style={[styles.circleBtn, styles.wantBtnStyle]}
-              onPress={() => deckRef.current?.swipeRight()}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="heart" size={24} color={colors.want} />
-            </TouchableOpacity>
-            <Text style={[styles.btnLabel, { color: colors.want }]}>Want</Text>
-          </View>
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { borderColor: colors.pass + '50', backgroundColor: colors.pass + '10' }]}
+            onPress={() => deckRef.current?.swipeLeft()}
+          >
+            <Ionicons name="close" size={28} color={colors.pass} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtnSm, { borderColor: colors.success + '50', backgroundColor: colors.success + '10' }]}
+            onPress={() => {
+              const m = movies[currentIndex];
+              if (m) navigation.navigate('LogWatched', { movieId: m.id });
+            }}
+          >
+            <Ionicons name="eye" size={20} color={colors.success} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { borderColor: colors.want + '50', backgroundColor: colors.want + '10' }]}
+            onPress={() => deckRef.current?.swipeRight()}
+          >
+            <Ionicons name="heart" size={26} color={colors.want} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -188,9 +161,6 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   );
 }
 
-const CIRCLE_SIZE = 54;
-const CIRCLE_SIZE_SM = 44;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -198,33 +168,31 @@ const styles = StyleSheet.create({
   },
   genreBar: {
     flexDirection: 'row',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
   },
-  genreChip: {
-    backgroundColor: colors.surfaceVariant,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    height: 32,
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.round,
   },
-  genreChipSelected: {
+  pillActive: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
-  chipText: {
-    color: colors.textSecondary,
+  pillText: {
     fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
-  chipTextSelected: {
-    color: colors.onPrimary,
+  pillTextActive: {
+    color: '#fff',
   },
-  deckContainer: {
+  deckArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   emptyState: {
     alignItems: 'center',
@@ -232,59 +200,40 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
   },
   loadMoreBtn: {
-    marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     backgroundColor: colors.primary,
     borderRadius: borderRadius.round,
   },
   loadMoreText: {
-    color: colors.onPrimary,
-    fontSize: 14,
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '600',
   },
-  buttons: {
+  actions: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xl,
-    paddingBottom: spacing.xs,
-    paddingTop: spacing.xs,
+    gap: 20,
+    paddingVertical: 8,
   },
-  btnGroup: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  btnLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  circleBtn: {
+  actionBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionBtnSm: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
-    borderRadius: borderRadius.round,
-  },
-  passBtnStyle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderColor: colors.pass + '60',
-    backgroundColor: colors.pass + '10',
-  },
-  watchedBtnStyle: {
-    width: CIRCLE_SIZE_SM,
-    height: CIRCLE_SIZE_SM,
-    borderColor: colors.success + '60',
-    backgroundColor: colors.success + '10',
-  },
-  wantBtnStyle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderColor: colors.want + '60',
-    backgroundColor: colors.want + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

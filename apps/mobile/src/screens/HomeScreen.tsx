@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { registerForPushNotifications, scheduleDailyRecNotification, scheduleWeekendGroupReminder } from '../utils/notifications';
 import { OptimizedImage } from '../components/OptimizedImage';
-import { getPosterUrl } from '@reelrank/shared';
+import { getPosterUrl, getBackdropUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,20 +22,25 @@ interface HomeScreenProps {
   navigation: NativeStackNavigationProp<any>;
 }
 
+interface FeedItem {
+  id: string;
+  userId: string;
+  movieId: number;
+  rating: number | null;
+  friend: { displayName: string; photoUrl: string | null };
+  movie: { id: number; title: string; posterPath: string };
+}
+
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { user, getIdToken } = useAuth();
-  const [stats, setStats] = useState({ totalSwipes: 0, moviesWatched: 0, winRate: 0 });
+  const [stats, setStats] = useState<any>(null);
   const [trending, setTrending] = useState<Movie[]>([]);
-  const [dailyRec, setDailyRec] = useState<{ movie: any; reason: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
-  const [watchlistCount, setWatchlistCount] = useState(0);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-    setupNotifications();
-  }, []);
+  useEffect(() => { loadData(); setupNotifications(); }, []);
 
   const setupNotifications = async () => {
     try {
@@ -60,24 +65,22 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const loadData = async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, trendingRes, recRes, suggestionsRes, watchlistRes] = await Promise.all([
+      const [statsRes, trendingRes, suggestionsRes, feedRes] = await Promise.all([
         api.solo.stats(token),
         api.movies.trending(),
-        api.solo.dailyRec(token),
         api.solo.suggestions(token),
-        api.solo.lists('want', token),
+        api.social.feed(token),
       ]);
 
-      if (statsRes.data) setStats(statsRes.data as any);
+      if (statsRes.data) setStats(statsRes.data);
       if (trendingRes.data && typeof trendingRes.data === 'object' && 'movies' in trendingRes.data) {
-        setTrending((trendingRes.data as any).movies.slice(0, 10));
+        setTrending((trendingRes.data as any).movies.slice(0, 12));
       }
-      if (recRes.data) setDailyRec(recRes.data as any);
       if (suggestionsRes.data && Array.isArray(suggestionsRes.data)) {
-        setSuggestions((suggestionsRes.data as Movie[]).slice(0, 10));
+        setSuggestions((suggestionsRes.data as Movie[]).slice(0, 12));
       }
-      if (watchlistRes.data && Array.isArray(watchlistRes.data)) {
-        setWatchlistCount(watchlistRes.data.length);
+      if (feedRes.data && Array.isArray(feedRes.data)) {
+        setFeed(feedRes.data as FeedItem[]);
       }
     } catch (error) {
       console.error('Failed to load home data:', error);
@@ -85,9 +88,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
-  const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Movie Fan';
-  const initials = displayName.charAt(0).toUpperCase();
-  const uniqueRanked = (stats as any).uniqueRanked ?? 0;
+  const username = user?.displayName ?? user?.email?.split('@')[0] ?? '';
+  const uniqueRanked = stats?.uniqueRanked ?? 0;
+  const moviesWatched = stats?.moviesWatched ?? 0;
+  const hero = trending[0];
+  const heroBackdrop = hero ? getBackdropUrl(hero.backdropPath, 'large') : null;
 
   return (
     <ScrollView
@@ -95,161 +100,59 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      {/* Hero */}
-      <View style={styles.hero}>
-        <View style={styles.heroLeft}>
-          {user?.photoURL ? (
-            <OptimizedImage uri={user.photoURL} style={styles.heroAvatar} />
-          ) : (
-            <View style={styles.heroAvatarFallback}>
-              <Text style={styles.heroInitials}>{initials}</Text>
-            </View>
+      {/* Header with search */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Hey, {username}</Text>
+          {stats && (
+            <Text style={styles.statsLine}>
+              {uniqueRanked} ranked · {moviesWatched} watched
+            </Text>
           )}
-          <View style={styles.heroText}>
-            <Text style={styles.greeting}>Hey, {displayName}</Text>
-            <Text style={styles.subtitle}>What are we watching?</Text>
-          </View>
         </View>
-        <View style={styles.heroAccent} />
+        <TouchableOpacity
+          style={styles.searchBtn}
+          onPress={() => navigation.navigate('Search')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="search" size={22} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <View style={styles.statPill}>
-          <Text style={styles.statValue}>{uniqueRanked}</Text>
-          <Text style={styles.statLabel}>Ranked</Text>
-        </View>
-        <View style={styles.statPill}>
-          <Text style={styles.statValue}>{stats.moviesWatched}</Text>
-          <Text style={styles.statLabel}>Watched</Text>
-        </View>
-        <View style={styles.statPill}>
-          <Text style={styles.statValue}>{stats.winRate}%</Text>
-          <Text style={styles.statLabel}>Like Rate</Text>
-        </View>
-      </View>
-
-      {/* Contextual CTA */}
-      <TouchableOpacity
-        style={styles.ctaCard}
-        activeOpacity={0.8}
-        onPress={() => {
-          if (watchlistCount >= 2) {
-            navigation.navigate('ThisOrThat', { source: 'watchlist' });
-          } else {
-            navigation.navigate('Discover');
-          }
-        }}
-      >
-        <View style={styles.ctaLeft}>
-          <Ionicons
-            name={watchlistCount >= 2 ? 'swap-horizontal' : 'compass'}
-            size={22}
-            color={colors.primary}
-          />
-          <View>
-            <Text style={styles.ctaTitle}>
-              {watchlistCount >= 2
-                ? `Rank your ${watchlistCount} watchlist movies`
-                : 'Discover new movies'}
-            </Text>
-            <Text style={styles.ctaSubtitle}>
-              {watchlistCount >= 2
-                ? 'Use This or That to find your favorites'
-                : 'Swipe to build your collection'}
-            </Text>
+      {/* Hero */}
+      {hero && heroBackdrop && (
+        <TouchableOpacity
+          style={styles.heroCard}
+          onPress={() => navigation.navigate('MovieDetail', { movieId: hero.id })}
+          activeOpacity={0.9}
+        >
+          <OptimizedImage uri={heroBackdrop} style={styles.heroImage} />
+          <View style={styles.heroOverlay}>
+            <Text style={styles.heroTitle} numberOfLines={1}>{hero.title}</Text>
+            {hero.releaseDate && (
+              <Text style={styles.heroYear}>{hero.releaseDate.split('-')[0]}</Text>
+            )}
           </View>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-      </TouchableOpacity>
-
-      {/* Quick Actions */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillRow}
-      >
-        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('Discover')}>
-          <Ionicons name="compass-outline" size={16} color={colors.primary} />
-          <Text style={styles.pillLabel}>Discover</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('AI')}>
-          <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-          <Text style={styles.pillLabel}>AI</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('ThisOrThat')}>
-          <Ionicons name="swap-horizontal-outline" size={16} color={colors.primary} />
-          <Text style={styles.pillLabel}>This or That</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('CreateRoom')}>
-          <Ionicons name="people-outline" size={16} color={colors.primary} />
-          <Text style={styles.pillLabel}>Group</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionPill} onPress={() => navigation.navigate('Search')}>
-          <Ionicons name="search-outline" size={16} color={colors.primary} />
-          <Text style={styles.pillLabel}>Search</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Today's Pick — prominent */}
-      {dailyRec && dailyRec.movie && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Pick</Text>
-          <TouchableOpacity
-            style={styles.dailyCard}
-            onPress={() => navigation.navigate('MovieDetail', { movieId: dailyRec.movie.id })}
-            activeOpacity={0.85}
-          >
-            <OptimizedImage
-              uri={getPosterUrl(dailyRec.movie.posterPath, 'large')}
-              style={styles.dailyPoster}
-            />
-            <View style={styles.dailyOverlay}>
-              <Text style={styles.dailyTitle} numberOfLines={2}>{dailyRec.movie.title}</Text>
-              <Text style={styles.dailyReason} numberOfLines={2}>{dailyRec.reason}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
       )}
 
       {/* Trending */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
-        </View>
+      <Section title="Trending" onSeeAll={() => navigation.navigate('Search')}>
         <FlatList
           horizontal
-          data={trending}
+          data={trending.slice(1)}
           keyExtractor={(item) => String(item.id)}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.carousel}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.movieCard}
-              onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
-              activeOpacity={0.85}
-            >
-              <OptimizedImage
-                uri={getPosterUrl(item.posterPath, 'medium')}
-                style={styles.moviePoster}
-              />
-              <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={10} color={colors.warning} />
-                <Text style={styles.ratingText}>{item.voteAverage.toFixed(1)}</Text>
-              </View>
-            </TouchableOpacity>
+            <PosterCard movie={item} onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })} />
           )}
         />
-      </View>
+      </Section>
 
       {/* Suggested */}
       {suggestions.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Suggested For You</Text>
+        <Section title="Suggested For You" onSeeAll={() => navigation.navigate('Discover')}>
           <FlatList
             horizontal
             data={suggestions}
@@ -257,27 +160,47 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.carousel}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.movieCard}
-                onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })}
-                activeOpacity={0.85}
-              >
-                <OptimizedImage
-                  uri={getPosterUrl(item.posterPath, 'medium')}
-                  style={styles.moviePoster}
-                />
-                <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={10} color={colors.warning} />
-                  <Text style={styles.ratingText}>{item.voteAverage.toFixed(1)}</Text>
-                </View>
-              </TouchableOpacity>
+              <PosterCard movie={item} onPress={() => navigation.navigate('MovieDetail', { movieId: item.id })} />
             )}
           />
-        </View>
+        </Section>
       )}
 
-      <View style={{ height: spacing.xxl + spacing.lg }} />
+      {/* Friend Activity */}
+      {feed.length > 0 && (
+        <Section title="Friend Activity" onSeeAll={() => navigation.navigate('FriendActivity')}>
+          <FlatList
+            horizontal
+            data={feed.slice(0, 10)}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carousel}
+            renderItem={({ item }) => {
+              const poster = getPosterUrl(item.movie.posterPath, 'medium');
+              return (
+                <TouchableOpacity
+                  style={styles.feedCard}
+                  onPress={() => navigation.navigate('MovieDetail', { movieId: item.movie.id })}
+                  activeOpacity={0.85}
+                >
+                  {poster && <OptimizedImage uri={poster} style={styles.feedPoster} />}
+                  <View style={styles.feedInfo}>
+                    <Text style={styles.feedFriend} numberOfLines={1}>
+                      {item.friend.displayName.split(' ')[0]}
+                    </Text>
+                    <Text style={styles.feedMovie} numberOfLines={1}>{item.movie.title}</Text>
+                    {item.rating != null && (
+                      <Text style={styles.feedRating}>{item.rating}/10</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </Section>
+      )}
+
+      <View style={{ height: spacing.xxl }} />
 
       <Snackbar
         visible={snackbar.visible}
@@ -290,141 +213,97 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
-const POSTER_W = 140;
-const POSTER_H = 210;
+function Section({ title, onSeeAll, children }: { title: string; onSeeAll?: () => void; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>{title}</Text>
+        {onSeeAll && (
+          <TouchableOpacity onPress={onSeeAll}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function PosterCard({ movie, onPress }: { movie: Movie; onPress: () => void }) {
+  const poster = getPosterUrl(movie.posterPath, 'medium');
+  return (
+    <TouchableOpacity style={styles.posterCard} onPress={onPress} activeOpacity={0.85}>
+      {poster && <OptimizedImage uri={poster} style={styles.posterImg} />}
+      <Text style={styles.posterTitle} numberOfLines={1}>{movie.title}</Text>
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  hero: {
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  heroLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  heroAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  heroAvatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroInitials: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  heroText: {
-    flex: 1,
+    paddingBottom: spacing.sm,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  heroAccent: {
-    width: 4,
-    height: 36,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-    marginLeft: spacing.sm,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  statPill: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statValue: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
   },
-  statLabel: {
-    fontSize: 10,
+  statsLine: {
+    fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 1,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: 2,
   },
-  ctaCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+  searchBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary + '25',
-  },
-  ctaLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
+    justifyContent: 'center',
   },
-  ctaTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  ctaSubtitle: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  pillRow: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+  heroCard: {
+    marginHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    height: 180,
     marginBottom: spacing.sm,
   },
-  actionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.round,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
-  pillLabel: {
+  heroOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing.md,
+    paddingTop: 48,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  heroYear: {
     fontSize: 13,
-    color: colors.text,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   section: {
     marginTop: spacing.md,
@@ -436,72 +315,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   seeAll: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  dailyCard: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    height: 200,
-  },
-  dailyPoster: {
-    width: '100%',
-    height: '100%',
-  },
-  dailyOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
-    padding: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  dailyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  dailyReason: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+    color: colors.textTertiary,
   },
   carousel: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    gap: 8,
   },
-  movieCard: {
-    width: POSTER_W,
+  posterCard: {
+    width: 110,
   },
-  moviePoster: {
-    width: POSTER_W,
-    height: POSTER_H,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+  posterImg: {
+    width: 110,
+    height: 165,
+    borderRadius: borderRadius.sm,
   },
-  movieTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: spacing.xs,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
-  },
-  ratingText: {
+  posterTitle: {
     fontSize: 11,
     color: colors.textSecondary,
+    marginTop: 4,
+    width: 110,
+  },
+  feedCard: {
+    width: 130,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  feedPoster: {
+    width: 130,
+    height: 80,
+  },
+  feedInfo: {
+    padding: 8,
+  },
+  feedFriend: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  feedMovie: {
+    fontSize: 11,
+    color: colors.text,
+    marginTop: 2,
+  },
+  feedRating: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

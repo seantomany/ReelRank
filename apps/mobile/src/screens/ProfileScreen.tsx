@@ -286,7 +286,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                   <Text style={styles.movieTitle} numberOfLines={1}>{movie.title ?? 'Unknown'}</Text>
                   {tab === 'rankings' && (
                     <Text style={styles.listMeta}>
-                      {item.eloScore != null ? `Score: ${Math.round(item.eloScore)}` : `#${index + 1} ranked`}
+                      {item.beliScore != null && item.beliScore > 0 ? `${item.beliScore}/10` : `#${index + 1}`}
                     </Text>
                   )}
                   {tab === 'watched' && item.rating != null && (

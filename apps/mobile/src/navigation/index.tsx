@@ -28,6 +28,7 @@ import { FriendsScreen } from '../screens/FriendsScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { AIScreen } from '../screens/AIScreen';
 import { StatsScreen } from '../screens/StatsScreen';
+import { FriendActivityScreen } from '../screens/FriendActivityScreen';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
@@ -138,6 +139,7 @@ export function AppNavigator() {
             <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={{ title: 'Profile', headerBackTitle: 'Friends' }} />
             <Stack.Screen name="AI" component={AIScreen} options={{ title: 'ReelRank AI', headerBackTitle: 'Home' }} />
             <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Your Stats', headerBackTitle: 'Profile' }} />
+            <Stack.Screen name="FriendActivity" component={FriendActivityScreen} options={{ title: 'Friend Activity', headerBackTitle: 'Home' }} />
           </>
         )}
       </Stack.Navigator>

@@ -54,7 +54,12 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
       swipeRight: () => triggerSwipe('right'),
     }));
 
-    const gesture = Gesture.Pan()
+    const handleTap = useCallback(() => {
+      const movie = movies[currentIndex];
+      if (movie && onCardPress) onCardPress(movie);
+    }, [movies, currentIndex, onCardPress]);
+
+    const panGesture = Gesture.Pan()
       .onUpdate((event) => {
         translateX.value = event.translationX;
         translateY.value = event.translationY;
@@ -76,6 +81,13 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
           translateY.value = withSpring(0);
         }
       });
+
+    const tapGesture = Gesture.Tap()
+      .onEnd(() => {
+        runOnJS(handleTap)();
+      });
+
+    const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
 
     const cardStyle = useAnimatedStyle(() => ({
       transform: [
@@ -115,9 +127,9 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
 
     return (
       <View style={styles.container}>
-        <GestureDetector gesture={gesture}>
+        <GestureDetector gesture={composedGesture}>
           <Animated.View style={[styles.cardWrapper, cardStyle]}>
-            <MovieCard movie={currentMovie} onPress={() => onCardPress?.(currentMovie)} />
+            <MovieCard movie={currentMovie} />
             <Animated.View style={[styles.overlay, styles.wantOverlay, wantOverlayStyle]}>
               <Text style={[styles.overlayText, { color: colors.want }]}>WANT</Text>
             </Animated.View>
@@ -146,7 +158,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.lg,
   },
   wantOverlay: {
     borderWidth: 3,
