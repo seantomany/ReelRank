@@ -137,6 +137,10 @@ export const api = {
       apiFetch(`/api/rooms/${code}/leave`, { method: 'POST', token }),
     bonusRound: (code: string, data: unknown, token: string) =>
       apiFetch(`/api/rooms/${code}/bonus-round`, { method: 'POST', body: data, token }),
+    pin: (roomCode: string, token: string) =>
+      apiFetch('/api/rooms/pin', { method: 'POST', body: { roomCode }, token }),
+    unpin: (roomCode: string, token: string) =>
+      apiFetch('/api/rooms/pin', { method: 'DELETE', body: { roomCode }, token }),
   },
 
   users: {
@@ -149,6 +153,10 @@ export const api = {
       apiFetch('/api/auth/verify', { method: 'POST', token }),
     updateProfile: (data: { username: string }, token: string) =>
       apiFetch('/api/auth/profile', { method: 'PATCH', body: data, token }),
+    uploadPhoto: (photoUrl: string, token: string) =>
+      apiFetch('/api/auth/photo', { method: 'POST', body: { photoUrl }, token }),
+    removePhoto: (token: string) =>
+      apiFetch('/api/auth/photo', { method: 'DELETE', token }),
   },
 
   ai: {
@@ -177,5 +185,9 @@ export const api = {
       apiFetch(`/api/social/comments?watchedId=${watchedId}`, { token }),
     addComment: (watchedId: string, targetUserId: string, text: string, token: string) =>
       apiFetch('/api/social/comments', { method: 'POST', body: { watchedId, targetUserId, text }, token }),
+    movieFriends: (movieId: number, token: string) =>
+      apiFetch(`/api/social/movie-friends?movieId=${movieId}`, { token }),
+    feed: (token: string) =>
+      apiFetch('/api/social/feed', { token }),
   },
 };

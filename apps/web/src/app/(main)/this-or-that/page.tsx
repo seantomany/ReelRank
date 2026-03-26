@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -65,6 +66,8 @@ function getSessionLimit(count: number): number {
 }
 
 export default function RefineRankingsPage() {
+  const searchParams = useSearchParams();
+  const isWatchlist = searchParams.get("source") === "watchlist";
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [pair, setPair] = useState<[SoloRanking, SoloRanking] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,13 +81,21 @@ export default function RefineRankingsPage() {
 
   const fetchRankings = useCallback(async () => {
     const res = await api.solo.ranking();
-    if (res.data) {
-      setRankings(res.data);
-      return res.data;
+    if (!res.data) {
+      if (res.error) toast.error(res.error);
+      return null;
     }
-    if (res.error) toast.error(res.error);
-    return null;
-  }, []);
+    let data = res.data;
+    if (isWatchlist) {
+      const wantRes = await api.solo.lists("want");
+      if (wantRes.data && Array.isArray(wantRes.data)) {
+        const wantIds = new Set(wantRes.data.map((w: any) => w.movieId ?? w.movie?.id));
+        data = data.filter((r) => wantIds.has(r.movieId));
+      }
+    }
+    setRankings(data);
+    return data;
+  }, [isWatchlist]);
 
   useEffect(() => {
     fetchRankings().then((data) => {
@@ -232,7 +243,7 @@ export default function RefineRankingsPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-8">
       <div className="mb-6 w-full max-w-xs mx-auto">
-        <p className="text-xs uppercase tracking-widest text-[#888] mb-3 text-center">Refine Rankings</p>
+        <p className="text-xs uppercase tracking-widest text-[#888] mb-3 text-center">{isWatchlist ? "Rank Watchlist" : "Refine Rankings"}</p>
         <div className="flex items-center gap-3">
           <div className="flex-1 h-1 bg-[#111] rounded-full overflow-hidden">
             <motion.div

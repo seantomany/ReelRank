@@ -100,7 +100,7 @@ export default function HomePage() {
           {stats && (
             <>
               {" — "}
-              {stats.pairwiseChoices} films ranked · {stats.moviesWatched} watched
+              {(stats as any).uniqueRanked ?? 0} films ranked · {stats.moviesWatched} watched
             </>
           )}
         </p>

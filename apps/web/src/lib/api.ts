@@ -180,6 +180,7 @@ export const api = {
         pairwiseChoices: number;
         moviesWatched: number;
         winRate: number;
+        uniqueRanked: number;
       }>("/api/solo/stats"),
     status: (movieId: number) =>
       apiFetch<import("@reelrank/shared").MovieUserStatus>(
@@ -270,6 +271,16 @@ export const api = {
     leave: (code: string) =>
       apiFetch<{ left: boolean }>(`/api/rooms/${code}/leave`, {
         method: "POST",
+      }),
+    pin: (roomCode: string) =>
+      apiFetch<{ pinnedRooms: string[] }>("/api/rooms/pin", {
+        method: "POST",
+        body: JSON.stringify({ roomCode }),
+      }),
+    unpin: (roomCode: string) =>
+      apiFetch<{ pinnedRooms: string[] }>("/api/rooms/pin", {
+        method: "DELETE",
+        body: JSON.stringify({ roomCode }),
       }),
   },
   ai: {
@@ -381,6 +392,21 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ watchedId, targetUserId, text }),
       }),
+    movieFriends: (movieId: number) =>
+      apiFetch<{ userId: string; displayName: string; photoUrl: string | null; rating: number | null; venue: string | null; watchedAt: string | null }[]>(
+        `/api/social/movie-friends?movieId=${movieId}`
+      ),
+    feed: () =>
+      apiFetch<{
+        id: string;
+        userId: string;
+        movieId: number;
+        rating: number | null;
+        venue: string | null;
+        watchedAt: string | null;
+        friend: { displayName: string; photoUrl: string | null };
+        movie: { id: number; title: string; posterPath: string; releaseDate: string; voteAverage: number };
+      }[]>("/api/social/feed"),
   },
   auth: {
     verify: () =>
@@ -391,6 +417,15 @@ export const api = {
       apiFetch<import("@reelrank/shared").User>("/api/auth/profile", {
         method: "PATCH",
         body: JSON.stringify(data),
+      }),
+    uploadPhoto: (photoUrl: string) =>
+      apiFetch<{ photoUrl: string }>("/api/auth/photo", {
+        method: "POST",
+        body: JSON.stringify({ photoUrl }),
+      }),
+    removePhoto: () =>
+      apiFetch<{ photoUrl: null }>("/api/auth/photo", {
+        method: "DELETE",
       }),
     ablyToken: (roomCode: string) =>
       apiFetch<unknown>("/api/auth/ably-token", {

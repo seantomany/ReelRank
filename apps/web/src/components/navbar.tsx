@@ -80,6 +80,13 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
                 <div className="px-3 py-2 text-xs text-[#888] truncate border-b border-[rgba(255,255,255,0.08)]">
                   {user?.email}
                 </div>
+                <Link
+                  href="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full text-left px-3 py-2 text-sm text-[#888] hover:text-[#e8e8e8] hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                >
+                  Settings
+                </Link>
                 <button
                   onClick={() => { signOut(); setMenuOpen(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-[#888] hover:text-[#e8e8e8] hover:bg-[rgba(255,255,255,0.05)] transition-colors cursor-pointer"

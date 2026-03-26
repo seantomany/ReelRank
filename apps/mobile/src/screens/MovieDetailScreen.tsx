@@ -40,6 +40,9 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
   const [movie, setMovie] = useState<Movie | null>(null);
   const [status, setStatus] = useState<MovieUserStatus | null>(null);
   const [providers, setProviders] = useState<ProvidersData | null>(null);
+  const [friendRatings, setFriendRatings] = useState<
+    { userId: string; displayName: string; photoUrl: string | null; rating: number | null }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
@@ -51,14 +54,16 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
     setLoading(true);
     try {
       const token = await getIdToken();
-      const [movieRes, statusRes, provRes] = await Promise.all([
+      const [movieRes, statusRes, provRes, friendsRes] = await Promise.all([
         api.movies.getMovie(movieId),
         api.solo.status(movieId, token),
         api.movies.getProviders(movieId),
+        api.social.movieFriends(movieId, token),
       ]);
       if (movieRes.data) setMovie(movieRes.data as Movie);
       if (statusRes.data) setStatus(statusRes.data as MovieUserStatus);
       if (provRes.data) setProviders(provRes.data as ProvidersData);
+      if (friendsRes.data && Array.isArray(friendsRes.data)) setFriendRatings(friendsRes.data as any);
     } catch (error) {
       console.error('Failed to load movie:', error);
       setSnackbar({ visible: true, message: 'Failed to load movie details' });
@@ -168,6 +173,27 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
                 <Ionicons name="open-outline" size={14} color={colors.primary} />
               </TouchableOpacity>
             )}
+          </View>
+        )}
+
+        {friendRatings.length > 0 && (
+          <View style={styles.friendsSection}>
+            <Text style={styles.sectionTitle}>Friends Who Watched</Text>
+            {friendRatings.map((fr) => (
+              <View key={fr.userId} style={styles.friendRow}>
+                <View style={styles.friendAvatar}>
+                  {fr.photoUrl ? (
+                    <OptimizedImage uri={fr.photoUrl} style={styles.friendAvatarImg} />
+                  ) : (
+                    <Text style={styles.friendAvatarText}>{fr.displayName.charAt(0).toUpperCase()}</Text>
+                  )}
+                </View>
+                <Text style={styles.friendName}>{fr.displayName}</Text>
+                {fr.rating != null && (
+                  <Text style={styles.friendRating}>{fr.rating}/10</Text>
+                )}
+              </View>
+            ))}
           </View>
         )}
 
@@ -320,6 +346,44 @@ const styles = StyleSheet.create({
   },
   tmdbLinkText: {
     fontSize: 13,
+    color: colors.primary,
+  },
+  friendsSection: {
+    marginTop: spacing.md,
+  },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  friendAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  friendAvatarImg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  friendAvatarText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  friendName: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
+  friendRating: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.primary,
   },
 });

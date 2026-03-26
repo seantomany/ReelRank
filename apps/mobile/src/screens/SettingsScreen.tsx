@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Linking, TextInput as RNTextInput, TouchableOpacity } from 'react-native';
-import { Text, Switch, Button, Divider, Snackbar } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Alert, Linking, TextInput as RNTextInput, TouchableOpacity, Image } from 'react-native';
+import { Text, Switch, Button, Divider, Snackbar, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { colors, spacing, borderRadius } from '../theme';
@@ -32,6 +33,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [dailyRecEnabled, setDailyRecEnabled] = useState(true);
   const [username, setUsername] = useState('');
   const [savedUsername, setSavedUsername] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
@@ -41,14 +43,55 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       try {
         const token = await getIdToken();
         const res = await api.auth.verify(token);
-        if (res.data && typeof res.data === 'object' && 'username' in (res.data as any)) {
-          const u = (res.data as any).username ?? '';
+        if (res.data && typeof res.data === 'object') {
+          const d = res.data as any;
+          const u = d.username ?? '';
           setUsername(u);
           setSavedUsername(u);
+          if (d.photoUrl) setPhotoUrl(d.photoUrl);
         }
       } catch {}
     })();
   }, []);
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo library access to change your profile photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+
+    const base64 = result.assets[0].base64;
+    const dataUrl = `data:image/jpeg;base64,${base64}`;
+
+    if (dataUrl.length > 200_000) {
+      setSnackbar({ visible: true, message: 'Photo is too large, please pick a smaller one' });
+      return;
+    }
+
+    try {
+      const token = await getIdToken();
+      const res = await api.auth.uploadPhoto(dataUrl, token);
+      if (res.error) {
+        setSnackbar({ visible: true, message: res.error });
+      } else {
+        setPhotoUrl(dataUrl);
+        setSnackbar({ visible: true, message: 'Profile photo updated' });
+      }
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to upload photo' });
+    }
+  };
 
   const handleSaveUsername = async () => {
     if (!username.trim() || username.trim().length < 3) {
@@ -115,6 +158,24 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+        <SectionHeader title="Profile Photo" />
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.photoRow} onPress={handlePickPhoto}>
+            <View style={styles.avatarContainer}>
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={styles.avatarImage} />
+              ) : (
+                <Avatar.Text size={56} label={user?.displayName?.charAt(0)?.toUpperCase() ?? '?'} />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.photoLabel}>{photoUrl ? 'Change photo' : 'Add a profile photo'}</Text>
+              <Text style={styles.photoHint}>Tap to select from your library</Text>
+            </View>
+            <Ionicons name="camera-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
         <SectionHeader title="Account" />
         <View style={styles.section}>
           <SettingRow
@@ -356,5 +417,31 @@ const styles = StyleSheet.create({
   usernameValueText: {
     color: colors.primary,
     fontSize: 14,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  photoLabel: {
+    color: colors.text,
+    fontSize: 15,
+  },
+  photoHint: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
   },
 });

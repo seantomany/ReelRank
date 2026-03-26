@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { getPosterUrl } from "@reelrank/shared";
 import { ArrowLeft, Search, X, UserPlus, Check, XIcon, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +33,17 @@ interface SearchResult {
   email: string;
 }
 
+interface FeedItem {
+  id: string;
+  userId: string;
+  movieId: number;
+  rating: number | null;
+  venue: string | null;
+  watchedAt: string | null;
+  friend: { displayName: string; photoUrl: string | null };
+  movie: { id: number; title: string; posterPath: string; releaseDate: string; voteAverage: number };
+}
+
 export default function FriendsPage() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -38,14 +51,17 @@ export default function FriendsPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
 
   const loadData = useCallback(async () => {
-    const [friendsRes, requestsRes] = await Promise.all([
+    const [friendsRes, requestsRes, feedRes] = await Promise.all([
       api.social.getFriends(),
       api.social.getRequests(),
+      api.social.feed(),
     ]);
     if (friendsRes.data) setFriends(friendsRes.data);
     if (requestsRes.data) setRequests(requestsRes.data);
+    if (feedRes.data && Array.isArray(feedRes.data)) setFeed(feedRes.data);
     setLoading(false);
   }, []);
 
@@ -244,6 +260,54 @@ export default function FriendsPage() {
               <ChevronRight className="w-4 h-4 text-[#555] group-hover:text-[#888] transition-colors" />
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Activity Feed */}
+      {feed.length > 0 && (
+        <div className="mt-8">
+          <p className="text-[10px] uppercase tracking-widest text-[#888] mb-3">
+            Recent Activity
+          </p>
+          <div className="space-y-2">
+            {feed.map((item) => {
+              const poster = getPosterUrl(item.movie.posterPath, "small");
+              const year = item.movie.releaseDate?.slice(0, 4);
+              return (
+                <Link
+                  key={item.id}
+                  href={`/movie/${item.movie.id}`}
+                  className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-[#111] transition-colors group"
+                >
+                  {poster && (
+                    <Image
+                      src={poster}
+                      alt=""
+                      width={36}
+                      height={54}
+                      className="rounded-sm object-cover w-9 h-[54px] shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#e8e8e8]">
+                      <span className="font-medium">{item.friend.displayName}</span>
+                      {" watched "}
+                      <span className="font-medium">{item.movie.title}</span>
+                      {year && <span className="text-[#888]"> ({year})</span>}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {item.rating != null && (
+                        <span className="text-xs text-[#ff2d55] font-medium">{item.rating}/10</span>
+                      )}
+                      {item.venue && (
+                        <span className="text-xs text-[#888]">{item.venue}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -123,6 +123,57 @@ async function gatherUserContext(userId: string): Promise<string> {
     sections.push(`WANT TO WATCH (swiped right, not yet watched):\n${wantToWatch.join('\n')}`);
   }
 
+  // Friends' recent watches
+  try {
+    const friendsSnap = await getDb()
+      .collection(COLLECTIONS.friendships)
+      .where('userIds', 'array-contains', userId)
+      .get();
+
+    const friendIds: string[] = [];
+    for (const doc of friendsSnap.docs) {
+      const ids = doc.data().userIds as string[];
+      const fid = ids.find((id: string) => id !== userId);
+      if (fid) friendIds.push(fid);
+    }
+
+    if (friendIds.length > 0) {
+      const friendWatches: { movieId: number; rating: number; friendName: string }[] = [];
+      const batchSize = 10;
+      for (let i = 0; i < friendIds.length && i < 20; i += batchSize) {
+        const batch = friendIds.slice(i, i + batchSize);
+        const snap = await getDb()
+          .collection(COLLECTIONS.watchedMovies)
+          .where('userId', 'in', batch)
+          .limit(30)
+          .get();
+        for (const d of snap.docs) {
+          const data = d.data();
+          if (data.rating && data.rating >= 7) {
+            const userDoc = await getDb().collection(COLLECTIONS.users).doc(data.userId).get();
+            const name = userDoc.data()?.displayName ?? userDoc.data()?.username ?? 'A friend';
+            friendWatches.push({ movieId: data.movieId, rating: data.rating, friendName: name });
+          }
+        }
+      }
+
+      if (friendWatches.length > 0) {
+        const topFriendWatches = friendWatches
+          .sort((a, b) => b.rating - a.rating)
+          .slice(0, 8);
+        const lines = await Promise.all(
+          topFriendWatches.map(async (fw) => {
+            const m = movieMap.get(fw.movieId) ?? (await safeGetMovieById(fw.movieId)).movie;
+            return `- ${fw.friendName} rated ${m?.title ?? `Movie #${fw.movieId}`} ${fw.rating}/10`;
+          })
+        );
+        sections.push(`FRIENDS' FAVORITES (movies friends watched and liked):\n${lines.join('\n')}`);
+      }
+    }
+  } catch {
+    // friends context is optional
+  }
+
   if (sections.length === 0) {
     return 'This user is brand new and has no movie history yet.';
   }
@@ -151,7 +202,8 @@ RULES:
 - Suggest 1-2 movies at a time, not big lists.
 - Ask follow-up questions to narrow down what they want.
 - Always use the [MOVIE_SEARCH:] format with the EXACT movie title and year when recommending. Do not guess IDs.
-- If the user has no history, ask about their taste to get started.`;
+- If the user has no history, ask about their taste to get started.
+- If you have data about what their friends watched and liked, occasionally mention it as social proof (e.g. "your friend X loved this one too").`;
 }
 
 export const maxDuration = 30;

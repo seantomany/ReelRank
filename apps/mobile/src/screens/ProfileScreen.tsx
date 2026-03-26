@@ -212,19 +212,31 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {/* Sort options */}
         {tab === 'watchlist' && tabData.length > 0 && (
-          <View style={styles.sortRow}>
-            <Text style={styles.sortLabel}>Sort</Text>
-            {(['recent', 'alpha', 'genre'] as WatchlistSort[]).map((s) => (
+          <View>
+            <View style={styles.sortRow}>
+              <Text style={styles.sortLabel}>Sort</Text>
+              {(['recent', 'alpha', 'genre'] as WatchlistSort[]).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  onPress={() => setWatchlistSort(s)}
+                  style={[styles.sortPill, watchlistSort === s && styles.sortPillActive]}
+                >
+                  <Text style={[styles.sortPillText, watchlistSort === s && styles.sortPillTextActive]}>
+                    {s === 'recent' ? 'Recent' : s === 'alpha' ? 'A–Z' : 'Genre'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {tabData.length >= 2 && (
               <TouchableOpacity
-                key={s}
-                onPress={() => setWatchlistSort(s)}
-                style={[styles.sortPill, watchlistSort === s && styles.sortPillActive]}
+                style={styles.rankWatchlistButton}
+                onPress={() => navigation.navigate('ThisOrThat', { source: 'watchlist' })}
               >
-                <Text style={[styles.sortPillText, watchlistSort === s && styles.sortPillTextActive]}>
-                  {s === 'recent' ? 'Recent' : s === 'alpha' ? 'A–Z' : 'Genre'}
-                </Text>
+                <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
+                <Text style={styles.rankWatchlistText}>Rank Watchlist with This or That</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
-            ))}
+            )}
           </View>
         )}
         {tab === 'watched' && tabData.length > 0 && (
@@ -545,5 +557,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     textDecorationLine: 'underline',
+  },
+  rankWatchlistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  rankWatchlistText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

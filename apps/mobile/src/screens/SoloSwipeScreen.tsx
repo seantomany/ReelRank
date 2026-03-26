@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, Chip, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -43,7 +43,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
 
   const loadGenres = async () => {
     const res = await api.movies.genres();
-    if (res.data) setGenres((res.data as any).slice(0, 6));
+    if (res.data) setGenres(res.data as any);
   };
 
   const loadMovies = async (p = page) => {
@@ -91,7 +91,11 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.genreBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.genreBar}
+      >
         <Chip
           selected={!selectedGenre}
           onPress={() => setSelectedGenre(null)}
@@ -111,7 +115,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             {g.name}
           </Chip>
         ))}
-      </View>
+      </ScrollView>
 
       <View style={styles.deckContainer}>
         {loading ? (
@@ -141,17 +145,29 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             mode="outlined"
             onPress={() => deckRef.current?.swipeLeft()}
             style={[styles.actionButton, { borderColor: colors.pass }]}
-            labelStyle={{ color: colors.pass, fontSize: 16 }}
-            icon={() => <Ionicons name="close" size={28} color={colors.pass} />}
+            labelStyle={{ color: colors.pass, fontSize: 14 }}
+            icon={() => <Ionicons name="close" size={24} color={colors.pass} />}
           >
             Pass
           </Button>
           <Button
             mode="outlined"
+            onPress={() => {
+              const m = movies[currentIndex];
+              if (m) navigation.navigate('LogWatched', { movieId: m.id });
+            }}
+            style={[styles.actionButton, { borderColor: colors.success ?? '#34c759' }]}
+            labelStyle={{ color: colors.success ?? '#34c759', fontSize: 14 }}
+            icon={() => <Ionicons name="checkmark-circle" size={24} color={colors.success ?? '#34c759'} />}
+          >
+            Watched
+          </Button>
+          <Button
+            mode="outlined"
             onPress={() => deckRef.current?.swipeRight()}
             style={[styles.actionButton, { borderColor: colors.want }]}
-            labelStyle={{ color: colors.want, fontSize: 16 }}
-            icon={() => <Ionicons name="heart" size={28} color={colors.want} />}
+            labelStyle={{ color: colors.want, fontSize: 14 }}
+            icon={() => <Ionicons name="heart" size={24} color={colors.want} />}
           >
             Want
           </Button>
@@ -176,7 +192,6 @@ const styles = StyleSheet.create({
   },
   genreBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
@@ -221,7 +236,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     borderWidth: 2,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.md,
     borderRadius: 999,
   },
 });

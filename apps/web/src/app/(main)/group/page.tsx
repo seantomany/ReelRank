@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPosterUrl } from "@reelrank/shared";
+import { Pin, PinOff } from "lucide-react";
 import type { Movie } from "@reelrank/shared";
 
 interface RoomHistoryItem {
@@ -53,15 +54,43 @@ function roomHref(room: RoomHistoryItem): string {
 export default function GroupHubPage() {
   const router = useRouter();
   const [history, setHistory] = useState<RoomHistoryItem[]>([]);
+  const [pinnedCodes, setPinnedCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.rooms.history().then((res) => {
-      if (res.data) setHistory(res.data);
-      else if (res.error) toast.error(res.error);
+    Promise.all([
+      api.rooms.history(),
+      api.auth.verify(),
+    ]).then(([historyRes, userRes]) => {
+      if (historyRes.data) setHistory(historyRes.data);
+      else if (historyRes.error) toast.error(historyRes.error);
+      if (userRes.data && typeof userRes.data === "object" && "pinnedRooms" in (userRes.data as any)) {
+        setPinnedCodes((userRes.data as any).pinnedRooms ?? []);
+      }
       setLoading(false);
     });
   }, []);
+
+  const togglePin = async (code: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isPinned = pinnedCodes.includes(code);
+    if (isPinned) {
+      setPinnedCodes((prev) => prev.filter((c) => c !== code));
+      await api.rooms.unpin(code);
+    } else {
+      setPinnedCodes((prev) => [code, ...prev]);
+      await api.rooms.pin(code);
+    }
+  };
+
+  const sortedHistory = [...history].sort((a, b) => {
+    const aPinned = pinnedCodes.includes(a.code);
+    const bPinned = pinnedCodes.includes(b.code);
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    return 0;
+  });
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -92,11 +121,12 @@ export default function GroupHubPage() {
           </p>
         ) : (
           <div className="mt-3">
-            {history.map((room) => {
+            {sortedHistory.map((room) => {
               const poster =
                 room.status === "results" && room.winnerMovie
                   ? getPosterUrl(room.winnerMovie.posterPath, "small")
                   : null;
+              const isPinned = pinnedCodes.includes(room.code);
 
               return (
                 <Link
@@ -104,6 +134,17 @@ export default function GroupHubPage() {
                   href={roomHref(room)}
                   className="flex items-center py-2.5 group"
                 >
+                  <button
+                    onClick={(e) => togglePin(room.code, e)}
+                    className="mr-2 p-1 rounded hover:bg-[#222] transition-colors cursor-pointer shrink-0"
+                    title={isPinned ? "Unpin" : "Pin to top"}
+                  >
+                    {isPinned ? (
+                      <Pin className="w-3.5 h-3.5 text-[#ff2d55]" />
+                    ) : (
+                      <Pin className="w-3.5 h-3.5 text-[#555] group-hover:text-[#888]" />
+                    )}
+                  </button>
                   <span
                     className="mr-3 h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{

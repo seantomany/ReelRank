@@ -60,20 +60,25 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [providers, setProviders] = useState<MovieProviders | null>(null);
+  const [friendRatings, setFriendRatings] = useState<
+    { userId: string; displayName: string; photoUrl: string | null; rating: number | null }[]
+  >([]);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [movieRes, statusRes, rankingsRes, providersRes] = await Promise.all([
+      const [movieRes, statusRes, rankingsRes, providersRes, friendsRes] = await Promise.all([
         api.movies.get(Number(id)),
         api.solo.status(Number(id)),
         api.solo.ranking(),
         api.movies.providers(Number(id)),
+        api.social.movieFriends(Number(id)),
       ]);
       if (movieRes.data) setMovie(movieRes.data);
       if (statusRes.data) setStatus(statusRes.data);
       if (providersRes.data) setProviders(providersRes.data);
       else setProviders(null);
+      if (friendsRes.data && Array.isArray(friendsRes.data)) setFriendRatings(friendsRes.data);
       if (rankingsRes.data) {
         const all = rankingsRes.data;
         const found = all.find((r: SoloRanking) => r.movieId === Number(id));
@@ -226,6 +231,29 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
             </div>
           </div>
         </div>
+
+        {friendRatings.length > 0 && (
+          <section className="mt-10 pt-8 border-t border-[#222]">
+            <h2 className="text-sm font-semibold text-[#e8e8e8] mb-4">Friends Who Watched</h2>
+            <div className="space-y-3">
+              {friendRatings.map((fr) => (
+                <div key={fr.userId} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center text-xs text-[#888] font-medium shrink-0 overflow-hidden">
+                    {fr.photoUrl ? (
+                      <Image src={fr.photoUrl} alt="" width={32} height={32} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      fr.displayName.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <span className="text-sm text-[#e8e8e8]">{fr.displayName}</span>
+                  {fr.rating != null && (
+                    <span className="ml-auto text-sm text-[#ff2d55] font-medium tabular-nums">{fr.rating}/10</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {providers &&
           (providers.stream.length > 0 ||

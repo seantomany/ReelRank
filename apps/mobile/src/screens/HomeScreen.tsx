@@ -101,7 +101,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
       <View style={styles.statsStrip}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{stats.totalSwipes}</Text>
+          <Text style={styles.statValue}>{(stats as any).uniqueRanked ?? 0}</Text>
           <Text style={styles.statLabel}>Ranked</Text>
         </View>
         <View style={styles.statDivider} />

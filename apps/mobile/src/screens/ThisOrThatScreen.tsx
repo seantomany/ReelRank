@@ -17,7 +17,13 @@ function pairKey(a: number, b: number): string {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
-export function ThisOrThatScreen() {
+interface ThisOrThatScreenProps {
+  route?: { params?: { source?: string } };
+}
+
+export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
+  const source = (route?.params as any)?.source as string | undefined;
+  const isWatchlist = source === 'watchlist';
   const { getIdToken } = useAuth();
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [pairA, setPairA] = useState<SoloRanking | null>(null);
@@ -38,7 +44,16 @@ export function ThisOrThatScreen() {
       const token = await getIdToken();
       const res = await api.solo.ranking(token);
       if (res.data && Array.isArray(res.data) && res.data.length >= 2) {
-        const data = res.data as SoloRanking[];
+        let data = res.data as SoloRanking[];
+
+        if (isWatchlist) {
+          const wantRes = await api.solo.lists('want', token);
+          if (wantRes.data && Array.isArray(wantRes.data)) {
+            const wantIds = new Set((wantRes.data as any[]).map((w: any) => w.movieId ?? w.movie?.id));
+            data = data.filter((r) => wantIds.has(r.movieId));
+          }
+        }
+
         setRankings(data);
         pickPair(data);
       }
@@ -164,7 +179,7 @@ export function ThisOrThatScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Which would you rather watch?</Text>
+      <Text style={styles.header}>{isWatchlist ? 'Rank your watchlist' : 'Which would you rather watch?'}</Text>
       <Text style={styles.counter}>{choiceCount}/{SESSION_LIMIT}</Text>
 
       <View style={styles.pairContainer}>

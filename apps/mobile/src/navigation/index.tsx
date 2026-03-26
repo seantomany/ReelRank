@@ -59,6 +59,7 @@ function MainTabs() {
           switch (route.name) {
             case 'Home': iconName = 'home'; break;
             case 'Discover': iconName = 'compass'; break;
+            case 'AI': iconName = 'sparkles'; break;
             case 'Group': iconName = 'people'; break;
             case 'Profile': iconName = 'person'; break;
           }
@@ -75,6 +76,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={withErrorBoundary(HomeScreen)} />
       <Tab.Screen name="Discover" component={withErrorBoundary(SoloSwipeScreen)} />
+      <Tab.Screen name="AI" component={withErrorBoundary(AIScreen)} options={{ title: 'ReelRank AI' }} />
       <Tab.Screen name="Group" component={withErrorBoundary(GroupScreen)} />
       <Tab.Screen name="Profile" component={withErrorBoundary(ProfileScreen)} />
     </Tab.Navigator>
