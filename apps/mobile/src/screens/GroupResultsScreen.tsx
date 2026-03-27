@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, FlatList, TextInput as RNTextInput } from 'react-native';
 import { Text, Button, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -30,10 +30,27 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
   const [bonusMovies, setBonusMovies] = useState<Movie[]>([]);
   const [bonusVoted, setBonusVoted] = useState(false);
   const [bonusWinner, setBonusWinner] = useState<Movie | null>(null);
+  const [roomName, setRoomName] = useState<string>('');
+  const [editingName, setEditingName] = useState(false);
 
   useEffect(() => {
     loadResults();
   }, [roomCode]);
+
+  useEffect(() => {
+    if (room?.name) setRoomName(room.name);
+  }, [room]);
+
+  const handleSaveName = async () => {
+    setEditingName(false);
+    try {
+      const token = await getIdToken();
+      await api.rooms.rename(roomCode, roomName.trim(), token);
+      setSnackbar({ visible: true, message: 'Group renamed!' });
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to rename group' });
+    }
+  };
 
   const loadResults = async () => {
     setLoading(true);
@@ -112,6 +129,35 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Editable Group Name */}
+      <View style={styles.nameRow}>
+        {editingName ? (
+          <View style={styles.nameEditRow}>
+            <RNTextInput
+              style={styles.nameInput}
+              value={roomName}
+              onChangeText={setRoomName}
+              placeholder="Name this group..."
+              placeholderTextColor={colors.textTertiary}
+              maxLength={100}
+              autoFocus
+              onSubmitEditing={handleSaveName}
+              returnKeyType="done"
+            />
+            <TouchableOpacity onPress={handleSaveName}>
+              <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => setEditingName(true)} style={styles.nameEditRow}>
+            <Text style={styles.nameText}>
+              {roomName || `Group ${roomCode}`}
+            </Text>
+            <Ionicons name="pencil" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Bonus Round Winner */}
       {bonusWinner && (
         <View style={styles.bonusWinnerCard}>
@@ -224,6 +270,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  nameRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  nameText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    paddingVertical: 4,
   },
   centerContainer: {
     flex: 1,

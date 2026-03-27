@@ -43,20 +43,51 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
     setLoading(true);
     try {
       const token = await getIdToken();
-      const res = await api.solo.ranking(token);
-      if (res.data && Array.isArray(res.data) && res.data.length >= 2) {
-        let data = res.data as SoloRanking[];
 
-        if (isWatchlist) {
-          const wantRes = await api.solo.lists('want', token);
-          if (wantRes.data && Array.isArray(wantRes.data)) {
-            const wantIds = new Set((wantRes.data as any[]).map((w: any) => w.movieId ?? w.movie?.id));
-            data = data.filter((r) => wantIds.has(r.movieId));
+      if (isWatchlist) {
+        const [rankRes, wantRes, watchedRes] = await Promise.all([
+          api.solo.ranking(token),
+          api.solo.lists('want', token),
+          api.solo.getWatched(token),
+        ]);
+        const existingRankings = (rankRes.data && Array.isArray(rankRes.data) ? rankRes.data : []) as SoloRanking[];
+
+        const watchedIds = new Set<number>();
+        if (watchedRes.data && Array.isArray(watchedRes.data)) {
+          for (const w of watchedRes.data as any[]) {
+            watchedIds.add(w.movieId ?? w.movie?.id);
           }
         }
 
-        setRankings(data);
-        pickPair(data);
+        if (wantRes.data && Array.isArray(wantRes.data)) {
+          const wantItems = (wantRes.data as any[]).filter((w: any) => {
+            const mid = w.movieId ?? w.movie?.id;
+            return !watchedIds.has(mid);
+          });
+          const wantRankings: SoloRanking[] = wantItems.map((w: any, i: number) => {
+            const movieId = w.movieId ?? w.movie?.id;
+            const existing = existingRankings.find((r) => r.movieId === movieId);
+            if (existing) return existing;
+            return {
+              movieId,
+              movie: w.movie ?? w,
+              rank: existingRankings.length + i + 1,
+              beliScore: 0,
+            } as SoloRanking;
+          });
+
+          if (wantRankings.length >= 2) {
+            setRankings(wantRankings);
+            pickPair(wantRankings);
+          }
+        }
+      } else {
+        const res = await api.solo.ranking(token);
+        if (res.data && Array.isArray(res.data) && res.data.length >= 2) {
+          const data = res.data as SoloRanking[];
+          setRankings(data);
+          pickPair(data);
+        }
       }
     } catch (error) {
       console.error('Failed to load rankings:', error);

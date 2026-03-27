@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Avatar, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +39,9 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
   const { userId } = route.params as { userId: string };
   const { getIdToken } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [myRankings, setMyRankings] = useState<any[]>([]);
+  const [myWantList, setMyWantList] = useState<any[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -49,8 +52,14 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
     setLoading(true);
     try {
       const token = await getIdToken();
-      const res = await api.social.getFriendProfile(userId, token);
-      if (res.data) setProfile(res.data);
+      const [profileRes, rankRes, wantRes] = await Promise.all([
+        api.social.getFriendProfile(userId, token),
+        api.solo.ranking(token),
+        api.solo.lists('want', token),
+      ]);
+      if (profileRes.data) setProfile(profileRes.data);
+      if (rankRes.data && Array.isArray(rankRes.data)) setMyRankings(rankRes.data);
+      if (wantRes.data && Array.isArray(wantRes.data)) setMyWantList(wantRes.data);
     } catch {
       setSnackbar({ visible: true, message: 'Failed to load profile' });
     } finally {
@@ -59,6 +68,30 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
   }, [userId, getIdToken]);
 
   useFocusEffect(useCallback(() => { loadProfile(); }, [loadProfile]));
+
+  const { compatScore, compatDesc, sharedWantMovies } = useMemo(() => {
+    const top = profile?.topRanked ?? [];
+    const myIds = myRankings.map((r: any) => r.movieId);
+    const mySet = new Set(myIds);
+    const friendIds = top.map((x: any) => x.movieId);
+    const friendSet = new Set(friendIds);
+    let intersection = 0;
+    for (const id of friendSet) {
+      if (mySet.has(id)) intersection += 1;
+    }
+    const union = new Set([...friendIds, ...myIds]).size;
+    const compatScore = union === 0 ? 0 : Math.round((intersection / union) * 100);
+    let compatDesc = "You'll discover new movies from each other";
+    if (compatScore >= 80) compatDesc = 'You two are movie soulmates!';
+    else if (compatScore >= 60) compatDesc = 'Great taste overlap!';
+    else if (compatScore >= 40) compatDesc = 'Decent amount in common';
+    else if (compatScore >= 20) compatDesc = 'Different but complementary tastes';
+
+    const wantIds = new Set(myWantList.map((w: any) => w.movieId));
+    const sharedWantMovies = top.filter((x: any) => wantIds.has(x.movieId));
+
+    return { compatScore, compatDesc, sharedWantMovies };
+  }, [profile, myRankings, myWantList]);
 
   const loadComments = async (watchedId: string) => {
     try {
@@ -124,6 +157,80 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
               <Text style={styles.statLabel}>Like Rate</Text>
             </View>
           </View>
+        )}
+
+        {/* Taste Compatibility */}
+        {(profile.topRanked?.length ?? 0) > 0 && myRankings.length > 0 && (
+          <View style={styles.compatCard}>
+            <View style={styles.compatHeader}>
+              <Ionicons name="heart-circle" size={24} color={colors.primary} />
+              <Text style={styles.compatTitle}>Taste Match</Text>
+            </View>
+            <Text style={styles.compatScore}>{compatScore}%</Text>
+            <Text style={styles.compatDesc}>{compatDesc}</Text>
+          </View>
+        )}
+
+        {sharedWantMovies.length > 0 && (
+          <View style={styles.sharedSection}>
+            <Text style={styles.sharedTitle}>Movies You Both Want</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sharedRow}
+            >
+              {sharedWantMovies.map((item: any) => (
+                <TouchableOpacity
+                  key={item.movieId}
+                  onPress={() => navigation.navigate('MovieDetail', { movieId: item.movieId })}
+                  activeOpacity={0.75}
+                >
+                  <OptimizedImage
+                    uri={getPosterUrl(item.movie?.posterPath, 'small')}
+                    style={styles.sharedPoster}
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Top Rankings */}
+        {profile.topRanked && profile.topRanked.length > 0 && (
+          <>
+            <View style={styles.rankingsHeader}>
+              <Text style={styles.sectionTitle}>Top Rankings</Text>
+              {myRankings.length > 0 && (
+                <TouchableOpacity onPress={() => setShowCompare(!showCompare)}>
+                  <Text style={styles.compareToggle}>{showCompare ? 'Hide Compare' : 'Compare'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {profile.topRanked.map((item: any) => {
+              const myRank = myRankings.findIndex((r: any) => r.movieId === item.movieId);
+              return (
+                <TouchableOpacity
+                  key={item.movieId}
+                  style={styles.rankRow}
+                  onPress={() => navigation.navigate('MovieDetail', { movieId: item.movieId })}
+                >
+                  <Text style={styles.rankNum}>#{item.rank}</Text>
+                  <OptimizedImage
+                    uri={getPosterUrl(item.movie?.posterPath, 'small')}
+                    style={styles.poster}
+                  />
+                  <View style={styles.rankInfo}>
+                    <Text style={styles.movieTitle} numberOfLines={1}>{item.movie?.title}</Text>
+                    {showCompare && (
+                      <Text style={styles.compareText}>
+                        {myRank >= 0 ? `Your rank: #${myRank + 1}` : 'Not in your rankings'}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
         )}
 
         <Text style={styles.sectionTitle}>Recent Watches</Text>
@@ -241,12 +348,95 @@ const styles = StyleSheet.create({
   statBox: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 20, fontWeight: 'bold', color: colors.text },
   statLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  compatCard: {
+    marginHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  compatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  compatTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  compatScore: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  compatDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  sharedSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  sharedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  sharedRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sharedPoster: {
+    width: 60,
+    height: 90,
+    borderRadius: 8,
+  },
+  rankingsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  compareToggle: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  rankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.md,
+  },
+  rankNum: {
+    color: colors.accent,
+    fontWeight: 'bold',
+    fontSize: 16,
+    width: 36,
+  },
+  rankInfo: { flex: 1 },
+  compareText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
+    marginTop: spacing.lg,
   },
   emptyText: {
     color: colors.textSecondary,

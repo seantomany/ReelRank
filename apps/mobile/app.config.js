@@ -40,6 +40,6 @@ export default {
         projectId: '1ab5830b-ef5e-4dbe-8808-a269399e6155',
       },
     },
-    plugins: ['expo-font', './plugins/fix-fmt-consteval'],
+    plugins: ['expo-font', 'expo-splash-screen', './plugins/fix-fmt-consteval'],
   },
 };

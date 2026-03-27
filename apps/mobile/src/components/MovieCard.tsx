@@ -6,20 +6,21 @@ import { getPosterUrl } from '@reelrank/shared';
 import { colors, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 
-export function getCardDimensions(screenWidth: number, screenHeight: number) {
+export function getCardDimensions(screenWidth: number, screenHeight: number, availableHeight?: number) {
   const cardWidth = screenWidth - 24;
-  const maxHeight = screenHeight - 230;
-  const cardHeight = Math.min(cardWidth * 1.4, maxHeight);
+  const maxHeight = availableHeight ? availableHeight - 8 : screenHeight - 280;
+  const cardHeight = Math.min(cardWidth * 1.5, maxHeight);
   return { cardWidth, cardHeight };
 }
 
 interface MovieCardProps {
   movie: Movie;
+  availableHeight?: number;
 }
 
-export function MovieCard({ movie }: MovieCardProps) {
+export function MovieCard({ movie, availableHeight }: MovieCardProps) {
   const { width, height } = useWindowDimensions();
-  const { cardWidth, cardHeight } = getCardDimensions(width, height);
+  const { cardWidth, cardHeight } = getCardDimensions(width, height, availableHeight);
 
   return (
     <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Text, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -18,9 +19,16 @@ interface SoloSwipeScreenProps {
 }
 
 const seenMovieIds = new Set<number>();
+let seenIdsLoaded = false;
+
+const GENRE_BAR_HEIGHT = 40;
+const ACTION_BAR_HEIGHT = 72;
 
 export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const { getIdToken } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const deckAvailableHeight = screenHeight - insets.top - GENRE_BAR_HEIGHT - ACTION_BAR_HEIGHT - insets.bottom - 48;
   const [movies, setMovies] = useState<Movie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,8 +40,25 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const deckRef = useRef<SwipeDeckRef>(null);
 
-  useEffect(() => { loadGenres(); }, []);
+  useEffect(() => {
+    loadGenres();
+    loadSwipedIds();
+  }, []);
   useEffect(() => { setPage(1); loadMovies(1); }, [selectedGenre]);
+
+  const loadSwipedIds = async () => {
+    if (seenIdsLoaded) return;
+    try {
+      const token = await getIdToken();
+      const res = await api.solo.swipedIds(token);
+      if (res.data && Array.isArray(res.data)) {
+        for (const id of res.data) seenMovieIds.add(id as number);
+      }
+      seenIdsLoaded = true;
+    } catch {
+      // non-critical
+    }
+  };
 
   const loadGenres = async () => {
     const res = await api.movies.genres();
@@ -78,6 +103,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.genreBarOuter}
         contentContainerStyle={styles.genreBar}
       >
         <TouchableOpacity
@@ -119,6 +145,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             currentIndex={currentIndex}
             onSwipe={handleSwipe}
             onCardPress={(movie) => navigation.navigate('MovieDetail', { movieId: movie.id })}
+            availableHeight={deckAvailableHeight}
           />
         )}
       </View>
@@ -166,12 +193,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  genreBarOuter: {
+    maxHeight: GENRE_BAR_HEIGHT,
+    flexGrow: 0,
+  },
   genreBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    height: 36,
+    height: GENRE_BAR_HEIGHT,
   },
   pill: {
     paddingHorizontal: 10,

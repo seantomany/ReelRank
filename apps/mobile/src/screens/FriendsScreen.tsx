@@ -184,6 +184,20 @@ export function FriendsScreen({ navigation }: FriendsScreenProps) {
         ] as any[]}
         keyExtractor={(item) => item.id ?? item.friendshipId}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <TouchableOpacity
+            style={styles.activityCard}
+            onPress={() => navigation.navigate('FriendActivity')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="pulse" size={20} color={colors.primary} />
+            <View style={styles.activityCardInfo}>
+              <Text style={styles.activityCardTitle}>Friend Activity</Text>
+              <Text style={styles.activityCardSub}>See what your friends are watching</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        }
         renderItem={({ item }) => {
           if (item.type === 'header') {
             const title = item.id === 'req-header' ? `Requests (${requests.length})` : `Friends (${friends.length})`;
@@ -301,6 +315,22 @@ const styles = StyleSheet.create({
   searchEmail: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   addButton: { backgroundColor: colors.primary },
   addButtonLabel: { fontSize: 12 },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  activityCardInfo: { flex: 1 },
+  activityCardTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  activityCardSub: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
   list: { paddingBottom: spacing.xxl },
   listHeader: {
     fontSize: 13,

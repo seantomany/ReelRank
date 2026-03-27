@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+
+SplashScreen.preventAutoHideAsync();
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -29,7 +32,7 @@ import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { AIScreen } from '../screens/AIScreen';
 import { StatsScreen } from '../screens/StatsScreen';
 import { FriendActivityScreen } from '../screens/FriendActivityScreen';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,8 +75,9 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 52,
-          paddingBottom: 0,
+          height: 80,
+          paddingBottom: 20,
+          paddingTop: 6,
         },
         ...screenOptions,
       })}
@@ -90,25 +94,38 @@ function MainTabs() {
 export function AppNavigator() {
   const { user, loading } = useAuth();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     hasSeenOnboarding().then((seen) => setShowOnboarding(!seen));
   }, []);
 
-  if (loading || showOnboarding === null) {
+  useEffect(() => {
+    if (!loading && showOnboarding !== null) {
+      setAppReady(true);
+    }
+  }, [loading, showOnboarding]);
+
+  const onLayoutReady = useCallback(async () => {
+    if (appReady) {
+      await SplashScreen.hideAsync();
+    }
+  }, [appReady]);
+
+  if (!appReady) {
+    return null;
+  }
+
+  if (!user && showOnboarding) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1 }} onLayout={onLayoutReady}>
+        <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
       </View>
     );
   }
 
-  if (!user && showOnboarding) {
-    return <OnboardingScreen onComplete={() => setShowOnboarding(false)} />;
-  }
-
   return (
-    <NavigationContainer>
+    <NavigationContainer onReady={onLayoutReady}>
       <Stack.Navigator screenOptions={screenOptions}>
         {!user ? (
           <Stack.Screen

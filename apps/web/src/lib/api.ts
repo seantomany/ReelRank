@@ -272,6 +272,11 @@ export const api = {
       apiFetch<{ left: boolean }>(`/api/rooms/${code}/leave`, {
         method: "POST",
       }),
+    rename: (code: string, name: string) =>
+      apiFetch<{ name: string }>(`/api/rooms/${code}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
     pin: (roomCode: string) =>
       apiFetch<{ pinnedRooms: string[] }>("/api/rooms/pin", {
         method: "POST",

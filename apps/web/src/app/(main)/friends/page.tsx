@@ -44,6 +44,19 @@ interface FeedItem {
   movie: { id: number; title: string; posterPath: string; releaseDate: string; voteAverage: number };
 }
 
+function getRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
 export default function FriendsPage() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -291,25 +304,30 @@ export default function FriendsPage() {
               const poster = getPosterUrl(item.movie.posterPath, "small");
               const year = item.movie.releaseDate?.slice(0, 4);
               return (
-                <Link
-                  key={item.id}
-                  href={`/movie/${item.movie.id}`}
-                  className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-[#111] transition-colors group"
-                >
+                <div key={item.id} className="flex items-center gap-3 py-3 px-3 rounded-lg bg-[#111] border border-[rgba(255,255,255,0.04)]">
+                  <Link href={`/friends/${item.userId}`} className="shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center">
+                      {item.friend.photoUrl ? (
+                        <img src={item.friend.photoUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-xs text-[#888]">{item.friend.displayName?.charAt(0)?.toUpperCase()}</span>
+                      )}
+                    </div>
+                  </Link>
                   {poster && (
-                    <Image
-                      src={poster}
-                      alt=""
-                      width={36}
-                      height={54}
-                      className="rounded-sm object-cover w-9 h-[54px] shrink-0"
-                    />
+                    <Link href={`/movie/${item.movie.id}`} className="shrink-0">
+                      <Image src={poster} alt="" width={36} height={54} className="rounded-sm object-cover w-9 h-[54px]" />
+                    </Link>
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[#e8e8e8]">
-                      <span className="font-medium">{item.friend.displayName}</span>
+                      <Link href={`/friends/${item.userId}`} className="font-medium hover:text-[#ff2d55] transition-colors">
+                        {item.friend.displayName}
+                      </Link>
                       {" watched "}
-                      <span className="font-medium">{item.movie.title}</span>
+                      <Link href={`/movie/${item.movie.id}`} className="font-medium hover:text-white transition-colors">
+                        {item.movie.title}
+                      </Link>
                       {year && <span className="text-[#888]"> ({year})</span>}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -319,9 +337,12 @@ export default function FriendsPage() {
                       {item.venue && (
                         <span className="text-xs text-[#888]">{item.venue}</span>
                       )}
+                      {item.watchedAt && (
+                        <span className="text-xs text-[#555]">{getRelativeTime(item.watchedAt)}</span>
+                      )}
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

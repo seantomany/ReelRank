@@ -28,6 +28,12 @@ interface Comment {
   createdAt: string;
 }
 
+interface RankedItem {
+  movieId: number;
+  movie: Movie;
+  rank: number;
+}
+
 interface FriendProfile {
   displayName: string;
   username: string | null;
@@ -38,6 +44,7 @@ interface FriendProfile {
     likeRate: number;
   };
   recentWatched: WatchedItem[];
+  topRanked: RankedItem[];
 }
 
 export default function FriendProfilePage(props: {
@@ -45,19 +52,22 @@ export default function FriendProfilePage(props: {
 }) {
   const { userId } = React.use(props.params as Promise<{ userId: string }>);
   const [profile, setProfile] = useState<FriendProfile | null>(null);
+  const [myRankings, setMyRankings] = useState<RankedItem[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [commentText, setCommentText] = useState("");
 
   useEffect(() => {
-    api.social
-      .getFriendProfile(userId)
-      .then((res) => {
-        if (res.data) setProfile(res.data);
-        if (res.error) toast.error(res.error);
-      })
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.social.getFriendProfile(userId),
+      api.solo.ranking(),
+    ]).then(([profileRes, rankRes]) => {
+      if (profileRes.data) setProfile(profileRes.data);
+      if (profileRes.error) toast.error(profileRes.error);
+      if (rankRes.data && Array.isArray(rankRes.data)) setMyRankings(rankRes.data as RankedItem[]);
+    }).finally(() => setLoading(false));
   }, [userId]);
 
   const loadComments = useCallback(
@@ -162,6 +172,77 @@ export default function FriendProfilePage(props: {
               {profile.stats.likeRate}%
             </p>
             <p className="text-[10px] text-[#888] mt-0.5">Like Rate</p>
+          </div>
+        </div>
+      )}
+
+      {/* Taste Compatibility */}
+      {profile.topRanked && profile.topRanked.length > 0 && myRankings.length > 0 && (() => {
+        const friendIds = new Set(profile.topRanked.map((r: RankedItem) => r.movieId));
+        const myIds = new Set(myRankings.map((r: RankedItem) => r.movieId));
+        const overlap = [...friendIds].filter(id => myIds.has(id)).length;
+        const total = new Set([...friendIds, ...myIds]).size;
+        const score = total > 0 ? Math.round((overlap / total) * 100) : 0;
+        const desc = score >= 80 ? "Movie soulmates!" : score >= 60 ? "Great taste overlap!" : score >= 40 ? "Decent amount in common" : score >= 20 ? "Different but complementary" : "You'll discover new movies from each other";
+        return (
+          <div className="mb-8 bg-[#111] rounded-xl p-6 text-center">
+            <p className="text-xs uppercase tracking-widest text-[#888] mb-2">Taste Match</p>
+            <p className="text-5xl font-bold text-[#ff2d55] tabular-nums">{score}%</p>
+            <p className="text-xs text-[#888] mt-2">{desc}</p>
+            {overlap > 0 && (
+              <p className="text-xs text-[#555] mt-1">{overlap} movies in common</p>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Top Rankings */}
+      {profile.topRanked && profile.topRanked.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs uppercase tracking-widest text-[#888]">
+              Top Rankings
+            </p>
+            {myRankings.length > 0 && (
+              <button
+                onClick={() => setShowCompare(!showCompare)}
+                className="text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors"
+              >
+                {showCompare ? "Hide Compare" : "Compare"}
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            {profile.topRanked.map((item) => {
+              const poster = item.movie ? getPosterUrl(item.movie.posterPath, "small") : null;
+              const myIdx = myRankings.findIndex((r) => r.movieId === item.movieId);
+              return (
+                <Link
+                  key={item.movieId}
+                  href={`/movie/${item.movieId}`}
+                  className="flex items-center gap-3 py-2 group"
+                >
+                  <span className="w-6 shrink-0 text-right text-sm font-bold text-[#ff2d55] tabular-nums">
+                    {item.rank}
+                  </span>
+                  {poster ? (
+                    <Image src={poster} alt={item.movie?.title ?? ""} width={40} height={60} className="w-10 h-15 shrink-0 rounded-sm object-cover" />
+                  ) : (
+                    <div className="w-10 h-15 shrink-0 rounded-sm bg-[#111]" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#e8e8e8] group-hover:text-white transition-colors truncate">
+                      {item.movie?.title}
+                    </p>
+                    {showCompare && (
+                      <p className="text-xs text-[#888] mt-0.5">
+                        {myIdx >= 0 ? `Your rank: #${myIdx + 1}` : "Not in your rankings"}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

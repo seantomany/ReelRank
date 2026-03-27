@@ -22,10 +22,29 @@ interface FeedItem {
   rating: number | null;
   friend: { displayName: string; photoUrl: string | null };
   movie: { id: number; title: string; posterPath: string };
+  watchedAt?: string | null;
+  createdAt?: string | null;
 }
 
 interface FriendActivityScreenProps {
   navigation: NativeStackNavigationProp<any>;
+}
+
+function getRelativeTime(item: FeedItem): string {
+  const raw = item.watchedAt ?? item.createdAt;
+  if (!raw) return '';
+  const now = Date.now();
+  const then = new Date(raw as string).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
 }
 
 export function FriendActivityScreen({ navigation }: FriendActivityScreenProps) {
@@ -80,40 +99,45 @@ export function FriendActivityScreen({ navigation }: FriendActivityScreenProps) 
       renderItem={({ item }) => {
         const poster = getPosterUrl(item.movie.posterPath, 'small');
         const initial = (item.friend.displayName ?? '?')[0]?.toUpperCase();
+        const timeLabel = getRelativeTime(item);
         return (
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => navigation.navigate('MovieDetail', { movieId: item.movie.id })}
-            activeOpacity={0.75}
-          >
-            {/* Friend avatar */}
-            <View style={styles.avatar}>
-              {item.friend.photoUrl ? (
-                <OptimizedImage uri={item.friend.photoUrl} style={styles.avatarImg} />
-              ) : (
-                <Text style={styles.avatarText}>{initial}</Text>
-              )}
-            </View>
-
-            {/* Poster */}
-            {poster && <OptimizedImage uri={poster} style={styles.poster} />}
-
-            {/* Info */}
-            <View style={styles.info}>
-              <Text style={styles.friendName} numberOfLines={1}>
-                {item.friend.displayName}
-              </Text>
-              <Text style={styles.movieTitle} numberOfLines={1}>
-                watched {item.movie.title}
-              </Text>
-              {item.rating != null && (
-                <Text style={styles.rating}>{item.rating}/10</Text>
-              )}
-            </View>
-          </TouchableOpacity>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.cardHeader}
+              onPress={() => navigation.navigate('FriendProfile', { userId: item.userId })}
+              activeOpacity={0.75}
+            >
+              <View style={styles.avatar}>
+                {item.friend.photoUrl ? (
+                  <OptimizedImage uri={item.friend.photoUrl} style={styles.avatarImg} />
+                ) : (
+                  <Text style={styles.avatarText}>{initial}</Text>
+                )}
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={styles.friendName}>{item.friend.displayName}</Text>
+                {timeLabel ? <Text style={styles.timeText}>{timeLabel}</Text> : null}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cardBody}
+              onPress={() => navigation.navigate('MovieDetail', { movieId: item.movie.id })}
+              activeOpacity={0.75}
+            >
+              {poster ? <OptimizedImage uri={poster} style={styles.poster} /> : null}
+              <View style={styles.movieInfo}>
+                <Text style={styles.movieTitle} numberOfLines={2}>{item.movie.title}</Text>
+                {item.rating != null && (
+                  <View style={styles.ratingBadge}>
+                    <Ionicons name="star" size={12} color={colors.accent} />
+                    <Text style={styles.ratingText}>{item.rating}/10</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
         );
       }}
-      ItemSeparatorComponent={() => <View style={styles.sep} />}
     />
   );
 }
@@ -136,12 +160,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  row: {
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
+    overflow: 'hidden',
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: 10,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  timeText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginTop: 1,
+  },
+  cardBody: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
+  movieInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.xs,
+    backgroundColor: colors.surfaceVariant,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.accent,
   },
   avatar: {
     width: 32,
@@ -162,12 +226,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   poster: {
-    width: 40,
-    height: 60,
+    width: 60,
+    height: 90,
     borderRadius: borderRadius.xs,
-  },
-  info: {
-    flex: 1,
   },
   friendName: {
     fontSize: 13,
@@ -175,18 +236,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   movieTitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  rating: {
-    fontSize: 11,
-    color: colors.primary,
-    marginTop: 2,
-  },
-  sep: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: spacing.lg,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
   },
 });

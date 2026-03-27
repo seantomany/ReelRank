@@ -23,6 +23,7 @@ interface SwipeDeckProps {
   currentIndex: number;
   onSwipe: (movie: Movie, direction: SwipeDirection) => void;
   onCardPress?: (movie: Movie) => void;
+  availableHeight?: number;
 }
 
 export interface SwipeDeckRef {
@@ -31,7 +32,7 @@ export interface SwipeDeckRef {
 }
 
 export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
-  ({ movies, currentIndex, onSwipe, onCardPress }, ref) => {
+  ({ movies, currentIndex, onSwipe, onCardPress, availableHeight }, ref) => {
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
 
@@ -129,12 +130,12 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
       <View style={styles.container}>
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={[styles.cardWrapper, cardStyle]}>
-            <MovieCard movie={currentMovie} />
+            <MovieCard movie={currentMovie} availableHeight={availableHeight} />
             <Animated.View style={[styles.overlay, styles.wantOverlay, wantOverlayStyle]}>
-              <Text style={[styles.overlayText, { color: colors.want }]}>WANT</Text>
+              <Text style={[styles.overlayText, styles.wantText]}>WANT</Text>
             </Animated.View>
             <Animated.View style={[styles.overlay, styles.passOverlay, passOverlayStyle]}>
-              <Text style={[styles.overlayText, { color: colors.pass }]}>PASS</Text>
+              <Text style={[styles.overlayText, styles.passText]}>PASS</Text>
             </Animated.View>
           </Animated.View>
         </GestureDetector>
@@ -172,6 +173,13 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: 'bold',
     letterSpacing: 4,
-    transform: [{ rotate: '-15deg' }],
+  },
+  wantText: {
+    color: colors.want,
+    transform: [{ rotate: '-25deg' }],
+  },
+  passText: {
+    color: colors.pass,
+    transform: [{ rotate: '25deg' }],
   },
 });

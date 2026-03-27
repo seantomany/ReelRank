@@ -3,6 +3,7 @@ import { withAuthAndRateLimit } from '@/lib/middleware';
 import { findRoomByCode, verifyRoomMembership, validateRoomCode } from '@/lib/route-helpers';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
 import { safeGetMovieById } from '@/lib/tmdb';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { user, requestId, params }) => {
   const code = validateRoomCode(params?.code ?? '', requestId);
@@ -75,6 +76,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     data: {
       id: roomId,
       code: room.code,
+      name: room.name ?? null,
       hostId: room.hostId,
       status: room.status,
       algorithmVersion: room.algorithmVersion,
@@ -87,4 +89,20 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
     ...(warnings.length > 0 ? { warnings } : {}),
     requestId,
   });
+});
+
+export const PATCH = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId, params }) => {
+  const code = validateRoomCode(params?.code ?? '', requestId);
+  const { roomId } = await findRoomByCode(code, requestId);
+  await verifyRoomMembership(roomId, user.id, requestId);
+
+  const body = await req.json();
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 100) : null;
+
+  await getDb().collection(COLLECTIONS.rooms).doc(roomId).update({
+    name: name || FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return NextResponse.json({ data: { name }, requestId });
 });

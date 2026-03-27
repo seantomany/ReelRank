@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPosterUrl, ABLY_EVENTS } from "@reelrank/shared";
 import { useAuth } from "@/context/auth-context";
+import { Pencil, Check } from "lucide-react";
 import type { RoomResultExtended, SwipeDirection, Movie } from "@reelrank/shared";
 
 const MAX_RETRIES = 3;
@@ -31,6 +32,8 @@ export default function ResultsPage(props: {
   const [bonusMovies, setBonusMovies] = useState<Movie[]>([]);
   const [bonusVoted, setBonusVoted] = useState(false);
   const [bonusWinner, setBonusWinner] = useState<Movie | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [editingName, setEditingName] = useState(false);
 
   const fetchResults = useCallback(
     async (retriesLeft = MAX_RETRIES) => {
@@ -195,8 +198,46 @@ export default function ResultsPage(props: {
     );
   }
 
+  const handleSaveName = async () => {
+    setEditingName(false);
+    const res = await api.rooms.rename(code, groupName.trim());
+    if (res.error) toast.error(res.error);
+    else toast.success("Group renamed!");
+  };
+
   return (
     <div className="mx-auto max-w-sm px-4 py-8">
+      {/* Editable Group Name */}
+      <div className="mb-6">
+        {editingName ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="Name this group..."
+              maxLength={100}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); }}
+              className="flex-1 bg-transparent text-lg font-semibold text-[#e8e8e8] placeholder:text-[#555] outline-none border-b border-[#ff2d55] pb-1"
+            />
+            <button onClick={handleSaveName}>
+              <Check className="w-5 h-5 text-[#ff2d55]" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditingName(true)}
+            className="flex items-center gap-2 group"
+          >
+            <span className="text-lg font-semibold text-[#e8e8e8] group-hover:text-white transition-colors">
+              {groupName || `Group ${code}`}
+            </span>
+            <Pencil className="w-4 h-4 text-[#555] group-hover:text-[#888] transition-colors" />
+          </button>
+        )}
+      </div>
+
       {/* Bonus round winner */}
       {bonusWinner && (
         <div className="text-center mb-8 py-4 bg-[#111] rounded-lg">

@@ -36,6 +36,7 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
   let rightSwipes = 0;
   let moviesWatched = 0;
   const recentWatched: any[] = [];
+  const topRanked: any[] = [];
 
   try {
     const swipesSnap = await getDb().collection(COLLECTIONS.soloSwipes)
@@ -71,6 +72,23 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
     // ignore index errors
   }
 
+  try {
+    const listDoc = await getDb().collection(COLLECTIONS.rankedLists).doc(targetUserId).get();
+    if (listDoc.exists) {
+      const movieIds: number[] = (listDoc.data()!.movieIds ?? []).slice(0, 10);
+      const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
+      for (let i = 0; i < movieResults.length; i++) {
+        topRanked.push({
+          movieId: movieIds[i],
+          movie: movieResults[i].movie,
+          rank: i + 1,
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   return NextResponse.json({
     data: {
       userId: targetUserId,
@@ -82,6 +100,7 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
         moviesWatched,
       },
       recentWatched,
+      topRanked,
     },
     requestId,
   });

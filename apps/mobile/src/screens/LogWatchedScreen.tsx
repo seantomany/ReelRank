@@ -112,16 +112,16 @@ export function LogWatchedScreen({ navigation, route }: LogWatchedScreenProps) {
         <Text style={styles.label}>Rating: {rating}/10</Text>
         <View style={styles.ratingRow}>
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <Chip
+            <TouchableOpacity
               key={n}
-              selected={n === rating}
               onPress={() => setRating(n)}
               style={[styles.ratingChip, n === rating && styles.ratingChipSelected]}
-              textStyle={[styles.ratingChipText, n === rating && styles.ratingChipTextSelected]}
-              compact
+              activeOpacity={0.7}
             >
-              {String(n)}
-            </Chip>
+              <Text style={[styles.ratingChipText, n === rating && styles.ratingChipTextSelected]}>
+                {String(n)}
+              </Text>
+            </TouchableOpacity>
           ))}
         </View>
       </View>
@@ -260,17 +260,23 @@ const styles = StyleSheet.create({
   },
   ratingRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
   },
   ratingChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: colors.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ratingChipSelected: {
     backgroundColor: colors.primary,
   },
   ratingChipText: {
     color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   ratingChipTextSelected: {
     color: colors.onPrimary,

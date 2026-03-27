@@ -1,0 +1,32 @@
+# Node modules (reinstalled during build)
+node_modules
+
+# Build artifacts from other apps
+apps/api
+apps/web
+.turbo
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+.cursor
+
+# Testing
+coverage
+
+# Vercel
+.vercel
+
+# Git
+.git
+
+# Logs
+*.log
+
+# Scripts
+git-commit.sh
+git-push.py
+
+# Agent transcripts
+agent-transcripts

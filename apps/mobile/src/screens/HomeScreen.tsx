@@ -95,12 +95,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const heroBackdrop = hero ? getBackdropUrl(hero.backdropPath, 'large') : null;
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-    >
-      {/* Header with search */}
+    <View style={styles.container}>
+      {/* Sticky header with search */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hey, {username}</Text>
@@ -119,6 +115,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         </TouchableOpacity>
       </View>
 
+      <ScrollView
+        style={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
       {/* Hero */}
       {hero && heroBackdrop && (
         <TouchableOpacity
@@ -135,6 +136,31 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </TouchableOpacity>
       )}
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={[styles.quickAction, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}
+          onPress={() => navigation.navigate('Discover')}
+        >
+          <Ionicons name="compass" size={20} color={colors.primary} />
+          <Text style={[styles.quickActionText, { color: colors.primary }]}>Discover</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickAction, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '30' }]}
+          onPress={() => navigation.navigate('ThisOrThat')}
+        >
+          <Ionicons name="swap-horizontal" size={20} color={colors.accent} />
+          <Text style={[styles.quickActionText, { color: colors.accent }]}>Rank</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickAction, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}
+          onPress={() => navigation.navigate('Friends')}
+        >
+          <Ionicons name="people" size={20} color={colors.success} />
+          <Text style={[styles.quickActionText, { color: colors.success }]}>Friends</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Trending */}
       <Section title="Trending" onSeeAll={() => navigation.navigate('Search')}>
@@ -209,7 +235,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       >
         {snackbar.message}
       </Snackbar>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -244,13 +271,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollContent: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
   },
   greeting: {
     fontSize: 20,
@@ -325,6 +356,26 @@ const styles = StyleSheet.create({
   seeAll: {
     fontSize: 12,
     color: colors.textTertiary,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: 8,
+    marginBottom: spacing.sm,
+  },
+  quickAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   carousel: {
     paddingHorizontal: spacing.lg,
