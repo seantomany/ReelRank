@@ -44,7 +44,7 @@ interface FriendProfile {
     likeRate: number;
   };
   recentWatched: WatchedItem[];
-  topRanked: RankedItem[];
+  topRanked?: RankedItem[];
 }
 
 export default function FriendProfilePage(props: {
