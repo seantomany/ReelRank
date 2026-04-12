@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCard: {
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.lg,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     height: 180,
@@ -378,7 +378,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   carousel: {
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.lg,
     gap: 8,
   },
   posterCard: {

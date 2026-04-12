@@ -18,9 +18,6 @@ interface SoloSwipeScreenProps {
   route: RouteProp<any>;
 }
 
-const seenMovieIds = new Set<number>();
-let seenIdsLoaded = false;
-
 const GENRE_BAR_HEIGHT = 40;
 const ACTION_BAR_HEIGHT = 72;
 
@@ -39,6 +36,8 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const deckRef = useRef<SwipeDeckRef>(null);
+  const seenMovieIds = useRef(new Set<number>());
+  const seenIdsLoaded = useRef(false);
 
   useEffect(() => {
     loadGenres();
@@ -47,14 +46,13 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   useEffect(() => { setPage(1); loadMovies(1); }, [selectedGenre]);
 
   const loadSwipedIds = async () => {
-    if (seenIdsLoaded) return;
     try {
       const token = await getIdToken();
       const res = await api.solo.swipedIds(token);
       if (res.data && Array.isArray(res.data)) {
-        for (const id of res.data) seenMovieIds.add(id as number);
+        for (const id of res.data) seenMovieIds.current.add(id as number);
       }
-      seenIdsLoaded = true;
+      seenIdsLoaded.current = true;
     } catch {
       // non-critical
     }
@@ -73,7 +71,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
         : await api.movies.trending(p);
       if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
         const fresh = ((res.data as any).movies as Movie[]).filter(
-          (m) => !seenMovieIds.has(m.id)
+          (m) => !seenMovieIds.current.has(m.id)
         );
         setMovies(fresh);
         setCurrentIndex(0);
@@ -87,7 +85,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
 
   const handleSwipe = useCallback(async (movie: Movie, direction: SwipeDirection) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    seenMovieIds.add(movie.id);
+    seenMovieIds.current.add(movie.id);
     setCurrentIndex((prev) => prev + 1);
     try {
       const token = await getIdToken();
