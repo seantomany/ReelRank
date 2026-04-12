@@ -43,7 +43,7 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
       status: 'active',
     });
 
-    await publishToRoom(room.code, 'bonus:started' as any, {
+    await publishToRoom(room.code, ABLY_EVENTS.BONUS_STARTED, {
       bonusRoundId: bonusRef.id,
       movieIds,
     });
@@ -110,7 +110,7 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
 
     await bonusDoc.ref.update({ status: 'completed', winnerId });
 
-    await publishToRoom(room.code, 'bonus:completed' as any, {
+    await publishToRoom(room.code, ABLY_EVENTS.BONUS_COMPLETED, {
       winnerId,
       movie,
       voteTally: Object.fromEntries(tally),
@@ -127,7 +127,7 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
     });
   }
 
-  await publishToRoom(room.code, 'bonus:vote' as any, {
+  await publishToRoom(room.code, ABLY_EVENTS.BONUS_VOTE, {
     voteCount,
     totalMembers: memberCount,
   });

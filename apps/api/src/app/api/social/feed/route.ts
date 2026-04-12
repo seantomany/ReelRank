@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/middleware';
 import { getDb, COLLECTIONS } from '@/lib/firestore';
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+import { safeGetMovieById } from '@/lib/tmdb';
 
 async function safeGetMovie(movieId: number) {
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
-    );
-    if (!res.ok) return null;
-    const d = await res.json();
+    const { movie, hydrated } = await safeGetMovieById(movieId);
+    if (!hydrated) return null;
     return {
-      id: d.id,
-      title: d.title,
-      posterPath: d.poster_path,
-      releaseDate: d.release_date,
-      voteAverage: d.vote_average,
+      id: movie.id,
+      title: movie.title,
+      posterPath: movie.posterPath,
+      releaseDate: movie.releaseDate,
+      voteAverage: movie.voteAverage,
     };
   } catch {
     return null;
@@ -56,8 +52,15 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId }) => {
     }
 
     allWatches.sort((a, b) => {
-      const ta = a.watchedAt ?? a.createdAt ?? '';
-      const tb = b.watchedAt ?? b.createdAt ?? '';
+      const toStr = (v: any) => {
+        if (!v) return '';
+        if (typeof v === 'string') return v;
+        if (typeof v?.toDate === 'function') return v.toDate().toISOString();
+        if (v instanceof Date) return v.toISOString();
+        return String(v);
+      };
+      const ta = toStr(a.watchedAt) || toStr(a.createdAt);
+      const tb = toStr(b.watchedAt) || toStr(b.createdAt);
       return tb.localeCompare(ta);
     });
 

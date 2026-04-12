@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getIdToken = useCallback(async (): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
-    return user.getIdToken();
+    return user.getIdToken(true);
   }, [user]);
 
   return (

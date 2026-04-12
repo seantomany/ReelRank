@@ -53,4 +53,7 @@ export const ABLY_EVENTS = {
   SWIPE_PROGRESS: 'swipe:progress',
   MEMBER_DONE: 'member:done',
   RESULTS_READY: 'results:ready',
+  BONUS_STARTED: 'bonus:started',
+  BONUS_VOTE: 'bonus:vote',
+  BONUS_COMPLETED: 'bonus:completed',
 } as const;

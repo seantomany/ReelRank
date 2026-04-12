@@ -64,16 +64,18 @@ export default function ResultsPage(props: {
       [ABLY_EVENTS.RESULTS_READY]: () => {
         fetchResults();
       },
-      ['bonus:started' as any]: (data: any) => {
+      [ABLY_EVENTS.BONUS_STARTED]: (data: unknown) => {
+        const payload = data as { movies?: Movie[] };
         setBonusActive(true);
-        if (data.movies) setBonusMovies(data.movies);
+        if (payload.movies) setBonusMovies(payload.movies);
       },
-      ['bonus:completed' as any]: (data: any) => {
+      [ABLY_EVENTS.BONUS_COMPLETED]: (data: unknown) => {
+        const payload = data as { movie?: Movie };
         setBonusActive(false);
         setBonusVoted(false);
-        if (data.movie) {
-          setBonusWinner(data.movie);
-          toast.success(`Bonus round winner: ${data.movie.title}`);
+        if (payload.movie) {
+          setBonusWinner(payload.movie);
+          toast.success(`Bonus round winner: ${payload.movie.title}`);
         }
       },
     });

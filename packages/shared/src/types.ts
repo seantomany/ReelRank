@@ -72,7 +72,9 @@ export interface RoomMember {
   roomId: string;
   userId: string;
   user?: Pick<User, 'id' | 'username' | 'displayName' | 'photoUrl'>;
-  joinedAt: Date;
+  joinedAt: Date | string;
+  swipeCount?: number;
+  doneAt?: string | null;
 }
 
 export interface RoomMovie {

@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { ArrowLeft, LogOut, User, Mail, AtSign, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import Image from "next/image";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -111,7 +110,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-4">
               <div className="relative w-16 h-16 rounded-full bg-[#111] border border-[rgba(255,255,255,0.08)] flex items-center justify-center overflow-hidden shrink-0">
                 {photoUrl ? (
-                  <Image src={photoUrl} alt="" width={64} height={64} className="w-16 h-16 rounded-full object-cover" />
+                  <img src={photoUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
                 ) : (
                   <span className="text-xl text-[#888]">{user?.email?.charAt(0).toUpperCase()}</span>
                 )}

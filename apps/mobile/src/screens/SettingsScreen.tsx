@@ -279,7 +279,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             right={
               <Button
                 mode="text"
-                onPress={() => Linking.openURL('https://filmstack-gamma.vercel.app/privacy')}
+                onPress={() => Linking.openURL('https://reelrank.vercel.app/privacy')}
                 textColor={colors.primary}
                 compact
               >
@@ -294,7 +294,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             right={
               <Button
                 mode="text"
-                onPress={() => Linking.openURL('https://filmstack-gamma.vercel.app/terms')}
+                onPress={() => Linking.openURL('https://reelrank.vercel.app/terms')}
                 textColor={colors.primary}
                 compact
               >

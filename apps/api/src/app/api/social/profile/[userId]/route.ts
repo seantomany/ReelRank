@@ -49,11 +49,17 @@ export const GET = withAuth(async (_req: NextRequest, { user, requestId, params 
   }
 
   try {
-    const watchedSnap = await getDb().collection(COLLECTIONS.watchedMovies)
-      .where('userId', '==', targetUserId)
-      .limit(10)
-      .get();
-    moviesWatched = watchedSnap.size;
+    const [watchedSnap, watchedCountSnap] = await Promise.all([
+      getDb().collection(COLLECTIONS.watchedMovies)
+        .where('userId', '==', targetUserId)
+        .limit(10)
+        .get(),
+      getDb().collection(COLLECTIONS.watchedMovies)
+        .where('userId', '==', targetUserId)
+        .count()
+        .get(),
+    ]);
+    moviesWatched = watchedCountSnap.data().count;
 
     for (const doc of watchedSnap.docs) {
       const d = doc.data();

@@ -18,6 +18,7 @@ interface Stats {
   pairwiseChoices: number;
   moviesWatched: number;
   winRate: number;
+  uniqueRanked?: number;
 }
 
 interface Genre {
@@ -100,7 +101,7 @@ export default function HomePage() {
           {stats && (
             <>
               {" — "}
-              {(stats as any).uniqueRanked ?? 0} films ranked · {stats.moviesWatched} watched
+              {stats.uniqueRanked ?? 0} films ranked · {stats.moviesWatched} watched
             </>
           )}
         </p>
@@ -226,7 +227,7 @@ export default function HomePage() {
         <section className="mt-8">
           <div className="flex items-baseline justify-between pl-4 md:pl-6 pr-4 md:pr-6 mb-2">
             <p className="text-xs uppercase tracking-widest text-[#888]">Recently Watched</p>
-            <Link href="/profile" onClick={() => {}} className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
+            <Link href="/profile" className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors">
               See all
             </Link>
           </div>

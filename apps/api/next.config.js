@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@reelrank/shared'],
+  serverExternalPackages: ['ably'],
   async headers() {
     return [
       {

@@ -149,6 +149,7 @@ export function RankFlowModal({ movie, open, onClose, onSkip, onRanked, rating }
     if (step === "done") {
       handleSave();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   if (!open) return null;

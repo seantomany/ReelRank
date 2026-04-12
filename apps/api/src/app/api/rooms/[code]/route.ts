@@ -53,7 +53,7 @@ export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { u
       joinedAt: data.joinedAt?.toDate?.()?.toISOString?.() ?? null,
       swipeCount: swiped,
       doneAt: swiped >= totalMovies && totalMovies > 0
-        ? (data.doneAt?.toDate?.()?.toISOString?.() ?? true)
+        ? (data.doneAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString())
         : null,
     };
   });
