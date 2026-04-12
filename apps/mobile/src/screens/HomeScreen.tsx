@@ -11,7 +11,6 @@ import { Text, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-import { registerForPushNotifications, scheduleDailyRecNotification, scheduleWeekendGroupReminder } from '../utils/notifications';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { getPosterUrl, getBackdropUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
@@ -40,21 +39,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadData(); setupNotifications(); }, []);
-
-  const setupNotifications = async () => {
-    try {
-      const pushToken = await registerForPushNotifications();
-      if (pushToken) {
-        const authToken = await getIdToken();
-        await api.users.savePushToken(pushToken, authToken);
-        await scheduleDailyRecNotification();
-        await scheduleWeekendGroupReminder();
-      }
-    } catch (err) {
-      console.log('Notification setup skipped:', err);
-    }
-  };
+  useEffect(() => { loadData(); }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

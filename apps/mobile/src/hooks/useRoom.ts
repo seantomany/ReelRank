@@ -21,11 +21,13 @@ export function useRoom(roomCode: string): UseRoomReturn {
   const { getIdToken } = useAuth();
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const token = await getIdToken();
       const result = await api.rooms.getRoom(roomCode, token);
+      if (!mountedRef.current) return;
       if (result.data) {
         setRoom(result.data as unknown as Room);
         setError(null);
@@ -33,31 +35,30 @@ export function useRoom(roomCode: string): UseRoomReturn {
         setError(result.error);
       }
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load room');
     }
   }, [roomCode, getIdToken]);
 
   useEffect(() => {
-    let cancelled = false;
+    mountedRef.current = true;
 
     const loadRoom = async () => {
       setLoading(true);
       try {
         const token = await getIdToken();
         const result = await api.rooms.getRoom(roomCode, token);
-        if (!cancelled) {
-          if (result.data) {
-            setRoom(result.data as unknown as Room);
-          } else if (result.error) {
-            setError(result.error);
-          }
-          setLoading(false);
+        if (!mountedRef.current) return;
+        if (result.data) {
+          setRoom(result.data as unknown as Room);
+        } else if (result.error) {
+          setError(result.error);
         }
+        setLoading(false);
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load room');
-          setLoading(false);
-        }
+        if (!mountedRef.current) return;
+        setError(err instanceof Error ? err.message : 'Failed to load room');
+        setLoading(false);
       }
     };
 
@@ -68,7 +69,7 @@ export function useRoom(roomCode: string): UseRoomReturn {
         clearTimeout(refreshTimeoutRef.current);
       }
       refreshTimeoutRef.current = setTimeout(() => {
-        if (!cancelled) refresh();
+        if (mountedRef.current) refresh();
       }, 500);
     };
 
@@ -84,13 +85,13 @@ export function useRoom(roomCode: string): UseRoomReturn {
     subscribeToRoom(roomCode, handlers, getIdToken);
 
     pollRef.current = setInterval(() => {
-      if (!cancelled && AppState.currentState === 'active') {
+      if (mountedRef.current && AppState.currentState === 'active') {
         refresh();
       }
     }, POLL_INTERVAL);
 
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }

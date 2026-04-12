@@ -4,6 +4,7 @@ import { Text, Switch, Button, Divider, Snackbar, Avatar } from 'react-native-pa
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { colors, spacing, borderRadius } from '../theme';
@@ -138,22 +139,6 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     ]);
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all your data. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setSnackbar({ visible: true, message: 'Contact support to delete your account' });
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <View style={styles.container}>
@@ -270,7 +255,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           <SettingRow
             icon="information-circle-outline"
             label="Version"
-            right={<Text style={styles.valueText}>1.0.0</Text>}
+            right={<Text style={styles.valueText}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>}
           />
           <Divider style={styles.divider} />
           <SettingRow
@@ -312,14 +297,6 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             textColor={colors.error}
           >
             Sign Out
-          </Button>
-          <Button
-            mode="text"
-            onPress={handleDeleteAccount}
-            textColor={colors.textTertiary}
-            style={styles.deleteButton}
-          >
-            Delete Account
           </Button>
         </View>
 
@@ -388,9 +365,6 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     borderColor: colors.error,
-  },
-  deleteButton: {
-    opacity: 0.6,
   },
   usernameEditRow: {
     flexDirection: 'row',

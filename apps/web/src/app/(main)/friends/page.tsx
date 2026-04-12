@@ -181,7 +181,7 @@ export default function FriendsPage() {
               >
                 <div className="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center shrink-0">
                   <span className="text-xs text-[#888]">
-                    {u.displayName.charAt(0).toUpperCase()}
+                    {u.displayName?.charAt(0)?.toUpperCase() ?? '?'}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -310,7 +310,7 @@ export default function FriendsPage() {
                       {item.friend.photoUrl ? (
                         <img src={item.friend.photoUrl} alt="" className="w-full h-full rounded-full object-cover" />
                       ) : (
-                        <span className="text-xs text-[#888]">{item.friend.displayName?.charAt(0)?.toUpperCase()}</span>
+                        <span className="text-xs text-[#888]">{item.friend.displayName?.charAt(0)?.toUpperCase() ?? '?'}</span>
                       )}
                     </div>
                   </Link>

@@ -22,6 +22,12 @@ export function SearchScreen({ navigation }: SearchScreenProps) {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -32,8 +38,10 @@ export function SearchScreen({ navigation }: SearchScreenProps) {
     }
 
     debounceRef.current = setTimeout(async () => {
+      if (!mountedRef.current) return;
       setLoading(true);
       const res = await api.movies.search(query);
+      if (!mountedRef.current) return;
       if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
         setResults((res.data as any).movies);
       }

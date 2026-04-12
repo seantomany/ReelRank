@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -118,7 +118,7 @@ export default function ProfilePage() {
     }
   });
 
-  const sortedWatchlist = [...watchlist].sort((a, b) => {
+  const sortedWatchlist = useMemo(() => [...watchlist].sort((a, b) => {
     if (watchlistSort === "alpha") return a.movie.title.localeCompare(b.movie.title);
     if (watchlistSort === "genre") {
       const ga = a.movie.genreIds[0] ?? 999;
@@ -126,9 +126,9 @@ export default function ProfilePage() {
       return ga - gb || a.movie.title.localeCompare(b.movie.title);
     }
     return 0;
-  });
+  }), [watchlist, watchlistSort]);
 
-  const sortedWatched = [...watched].sort((a, b) => {
+  const sortedWatched = useMemo(() => [...watched].sort((a, b) => {
     if (watchedSort === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
     if (watchedSort === "alpha") return (a.movie?.title ?? "").localeCompare(b.movie?.title ?? "");
     if (watchedSort === "genre") {
@@ -137,7 +137,7 @@ export default function ProfilePage() {
       return ga - gb || (a.movie?.title ?? "").localeCompare(b.movie?.title ?? "");
     }
     return 0;
-  });
+  }), [watched, watchedSort]);
 
   const rankCount = rankings.length;
   const watchlistCount = watchlist.length;

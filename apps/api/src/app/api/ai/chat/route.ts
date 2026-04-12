@@ -138,8 +138,9 @@ async function gatherUserContext(userId: string): Promise<string> {
     }
 
     if (friendIds.length > 0) {
-      const friendWatches: { movieId: number; rating: number; friendName: string }[] = [];
       const batchSize = 10;
+      // Step 1: Collect all watches with rating >= 7
+      const rawWatches: { movieId: number; rating: number; userId: string }[] = [];
       for (let i = 0; i < friendIds.length && i < 20; i += batchSize) {
         const batch = friendIds.slice(i, i + batchSize);
         const snap = await getDb()
@@ -150,12 +151,31 @@ async function gatherUserContext(userId: string): Promise<string> {
         for (const d of snap.docs) {
           const data = d.data();
           if (data.rating && data.rating >= 7) {
-            const userDoc = await getDb().collection(COLLECTIONS.users).doc(data.userId).get();
-            const name = userDoc.data()?.displayName ?? userDoc.data()?.username ?? 'A friend';
-            friendWatches.push({ movieId: data.movieId, rating: data.rating, friendName: name });
+            rawWatches.push({ movieId: data.movieId, rating: data.rating, userId: data.userId });
           }
         }
       }
+
+      // Step 2: Batch fetch all unique user docs at once
+      const uniqueUserIds = [...new Set(rawWatches.map(w => w.userId))];
+      const userNameMap = new Map<string, string>();
+      if (uniqueUserIds.length > 0) {
+        const userRefs = uniqueUserIds.map(id => getDb().collection(COLLECTIONS.users).doc(id));
+        const userDocs = await getDb().getAll(...userRefs);
+        for (const userDoc of userDocs) {
+          if (userDoc.exists) {
+            const data = userDoc.data()!;
+            userNameMap.set(userDoc.id, data.displayName ?? data.username ?? 'A friend');
+          }
+        }
+      }
+
+      // Step 3: Map watches with friend names
+      const friendWatches = rawWatches.map(w => ({
+        movieId: w.movieId,
+        rating: w.rating,
+        friendName: userNameMap.get(w.userId) ?? 'A friend',
+      }));
 
       if (friendWatches.length > 0) {
         const topFriendWatches = friendWatches

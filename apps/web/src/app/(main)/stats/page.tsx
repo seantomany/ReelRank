@@ -33,10 +33,12 @@ const PIE_COLORS = ["#ff2d55", "#e0264b", "#bf1f3f", "#991933", "#731326", "#4d0
 export default function StatsPage() {
   const [insights, setInsights] = useState<SoloInsights | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.solo.insights().then((res) => {
       if (res.data) setInsights(res.data);
+      else if (res.error) setError(res.error);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -59,8 +61,30 @@ export default function StatsPage() {
           <ArrowLeft className="w-4 h-4" /> Profile
         </Link>
         <div className="py-20 text-center">
-          <p className="text-sm text-[#888]">No data yet</p>
-          <p className="text-xs text-[#888] mt-1">Start swiping and watching movies to see your stats</p>
+          {error ? (
+            <>
+              <p className="text-sm text-red-400">Failed to load stats</p>
+              <p className="text-xs text-[#888] mt-1">{error}</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setError(null);
+                  api.solo.insights().then((res) => {
+                    if (res.data) setInsights(res.data);
+                    else if (res.error) setError(res.error);
+                  }).finally(() => setLoading(false));
+                }}
+                className="mt-3 text-sm text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2"
+              >
+                Retry
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-[#888]">No data yet</p>
+              <p className="text-xs text-[#888] mt-1">Start swiping and watching movies to see your stats</p>
+            </>
+          )}
         </div>
       </div>
     );

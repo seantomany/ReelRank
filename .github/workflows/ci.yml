@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -48,8 +48,8 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APP_ID: "1:000:web:000"
           NEXT_PUBLIC_API_URL: https://test.vercel.app
 
-      - name: Run API tests
-        run: pnpm turbo run test --filter=@reelrank/api
+      - name: Run tests
+        run: pnpm test
         env:
           FIREBASE_PROJECT_ID: test
           FIREBASE_CLIENT_EMAIL: test@test.iam.gserviceaccount.com

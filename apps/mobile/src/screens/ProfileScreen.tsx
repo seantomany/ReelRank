@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Text, Avatar, Button, SegmentedButtons, Snackbar, ActivityIndicator, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [watchlistSort, setWatchlistSort] = useState<WatchlistSort>('recent');
   const [watchedSort, setWatchedSort] = useState<WatchedSort>('recent');
+  const tabRequestIdRef = useRef(0);
 
   const loadStats = useCallback(async () => {
     try {
@@ -44,6 +45,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   }, [getIdToken]);
 
   const loadTabData = useCallback(async () => {
+    const requestId = ++tabRequestIdRef.current;
     setLoading(true);
     try {
       const token = await getIdToken();
@@ -59,14 +61,20 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           res = await api.solo.getWatched(token);
           break;
       }
+      // Only apply the result if this is still the most recent request
+      // (i.e. the user hasn't switched tabs while this was in flight).
+      if (requestId !== tabRequestIdRef.current) return;
       if (res?.data) {
         setTabData(Array.isArray(res.data) ? res.data : []);
       }
     } catch (error) {
+      if (requestId !== tabRequestIdRef.current) return;
       console.error('Failed to load tab data:', error);
       setSnackbar({ visible: true, message: 'Failed to load data' });
     } finally {
-      setLoading(false);
+      if (requestId === tabRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [tab, getIdToken]);
 

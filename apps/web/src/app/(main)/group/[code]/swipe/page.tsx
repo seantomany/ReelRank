@@ -115,15 +115,22 @@ export default function GroupSwipePage(props: {
         }
       },
     });
-    return unsubscribe;
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
   }, [code, router]);
 
-  // Poll room data as primary mechanism (Ably is unreliable)
+  // Poll room data as fallback (Ably is primary)
   useEffect(() => {
+    let cancelled = false;
+
     const poll = async () => {
+      if (cancelled) return;
       try {
         const res = await api.rooms.get(code);
-        if (!res.data) return;
+        if (cancelled || !res.data) return;
 
         if (res.data.status === "results") {
           router.push(`/group/${code}/results`);
@@ -154,8 +161,11 @@ export default function GroupSwipePage(props: {
     };
 
     poll();
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
+    const interval = setInterval(poll, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [code, router]);
 
   const handleSwipe = useCallback(

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Avatar, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +47,12 @@ export function FriendProfileScreen({ navigation, route }: FriendProfileScreenPr
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  // Clear comment text when switching between expanded items to prevent
+  // submitting a comment to the wrong item.
+  useEffect(() => {
+    setCommentText('');
+  }, [expandedItem]);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
