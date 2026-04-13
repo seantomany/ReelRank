@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions } f
 import { Text, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -101,6 +102,19 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     }
   };
 
+  // When user navigates back to this screen, re-filter the deck
+  useFocusEffect(
+    useCallback(() => {
+      if (movies.length > 0) {
+        const filtered = movies.filter((m) => !seenMovieIds.current.has(m.id));
+        if (filtered.length !== movies.length) {
+          setMovies(filtered);
+          setCurrentIndex(0);
+        }
+      }
+    }, [movies])
+  );
+
   const handleSwipe = useCallback(async (movie: Movie, direction: SwipeDirection) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     seenMovieIds.current.add(movie.id);
@@ -179,7 +193,10 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             style={[styles.actionBtnSm, { borderColor: colors.success + '50', backgroundColor: colors.success + '10' }]}
             onPress={() => {
               const m = movies[currentIndex];
-              if (m) navigation.navigate('LogWatched', { movieId: m.id });
+              if (m) {
+                seenMovieIds.current.add(m.id);
+                navigation.navigate('LogWatched', { movieId: m.id });
+              }
             }}
           >
             <Ionicons name="eye" size={20} color={colors.success} />
