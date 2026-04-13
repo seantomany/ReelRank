@@ -21,10 +21,9 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadProfile() {
       const res = await api.auth.verify();
-      if (res.data && typeof res.data === "object") {
-        const d = res.data as any;
-        setUsername(d.username ?? "");
-        setPhotoUrl(d.photoUrl ?? null);
+      if (res.data) {
+        setUsername(res.data.username ?? "");
+        setPhotoUrl(res.data.photoUrl ?? null);
       }
       setLoading(false);
     }

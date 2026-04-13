@@ -23,35 +23,44 @@
 
 ## Open Bugs — Critical
 - [ ] Firebase API keys in `eas.json` are plaintext — move to EAS secrets before public release
-- [ ] Mobile push notifications are stubbed (no-ops) — implement with `expo-notifications` or remove registration calls
 
 ## Open Bugs — High
-- [ ] Mobile watchlist reorder only updates local state — needs API call to persist
-- [ ] Mobile delete account button just shows "contact support" — implement or remove
-- [ ] Mobile `SoloSwipeScreen` uses module-level `seenMovieIds` — persists across navigations, should be component state
-- [ ] Mobile `FriendProfileScreen` shares single `commentText` across all items — can submit to wrong item
-- [ ] Mobile `AIScreen` SSE parsing is brittle (manual line splitting) — consider streaming library
-- [ ] Web friends page `u.displayName.charAt(0)` crashes if displayName is null
-- [ ] Web group swipe runs Ably + 3s polling simultaneously — memory leak risk
-- [ ] API `ai/chat` N+1 query: fetches user docs inside loop (lines 143-157) — batch instead
-
-## Open Bugs — Medium
+- [ ] Mobile watchlist reorder only updates local state — no server model for swipe ordering (cosmetic only)
 - [ ] Firestore composite indexes needed for `results` subcollection `orderBy('computedAt')` queries
-- [ ] Web stats page silently ignores API errors — needs error state
-- [ ] Web discover: if `swipedIds` API fails, duplicates may appear
-- [ ] Mobile `ProfileScreen` tab switching race conditions with stale responses
-- [ ] Mobile `SearchScreen` debounce doesn't cancel in-flight fetch on unmount
-- [ ] Mobile `useRoom` hook doesn't check mounted state in Ably callback
-- [ ] Mobile app version hardcoded in `app.config.js` AND `SettingsScreen` — single source
-- [ ] Web profile page sorts lists on every render — needs `useMemo`
+
+## Fixed
+- [x] Mobile push notifications — removed stubbed registration calls ✅
+- [x] Mobile delete account button — removed non-functional button ✅
+- [x] Mobile `SoloSwipeScreen` module-level `seenMovieIds` — moved to useRef ✅
+- [x] Mobile `FriendProfileScreen` shared commentText — clears on item switch ✅
+- [x] Mobile `AIScreen` SSE parsing — uses ReadableStream now ✅
+- [x] Web friends page displayName null crash — added optional chaining ✅
+- [x] Web group swipe polling — reduced to 8s with cleanup ✅
+- [x] API `ai/chat` N+1 query — batched user fetches ✅
+- [x] Web stats page error state — added with retry button ✅
+- [x] Web discover swipedIds failure — handled gracefully ✅
+- [x] Mobile ProfileScreen tab race conditions — request ID tracking ✅
+- [x] Mobile SearchScreen debounce unmount — mounted ref check ✅
+- [x] Mobile useRoom mounted state — mountedRef in Ably callbacks ✅
+- [x] Mobile app version — reads from expo-constants ✅
+- [x] Web profile page useMemo — wrapped sorted lists ✅
+- [x] `/terms` page — created ✅
+- [x] GitHub Actions Node.js — upgraded to 22 ✅
+- [x] AI chat model — using claude-sonnet-4 with retry on overload ✅
+- [x] AI chat timeout — reduced TMDB fetches, set maxDuration=10 ✅
+- [x] CORS — locked down with origin whitelist ✅
+- [x] User search — stripped email from responses ✅
+- [x] AI chat payload — size limits added ✅
+- [x] Mobile discover persistence — waits for swiped IDs, auto-skips pages ✅
+- [x] Mobile discover removes movies on return — useFocusEffect ✅
+- [x] Mobile group mode UX — solo labels, hide bonus round, better scores ✅
+- [x] Mobile home alignment — consistent spacing ✅
 
 ## Improvements to Consider
 - [ ] Add web test coverage (currently 0 tests — only API + mobile have tests)
 - [ ] Add E2E tests for critical flows (auth, swipe, group room lifecycle)
 - [ ] Rate limiting feedback in UI (show "slow down" not generic error)
 - [ ] Offline support / optimistic updates for swipes
-- [ ] Add `/terms` page on web (mobile links to it)
-- [ ] Upgrade GitHub Actions from Node.js 20 to 24
 
 ## Ideas / Backlog
 - *(Add future ideas here)*
