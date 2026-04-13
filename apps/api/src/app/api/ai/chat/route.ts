@@ -265,7 +265,8 @@ export async function POST(req: NextRequest) {
 
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-    let stream;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let stream: any;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         stream = await client.messages.stream({
