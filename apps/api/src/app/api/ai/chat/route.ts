@@ -46,7 +46,7 @@ async function gatherUserContext(userId: string): Promise<string> {
   for (const id of rankedIds) movieIds.add(id);
 
   const movieResults = await Promise.all(
-    Array.from(movieIds).slice(0, 150).map((id) => safeGetMovieById(id))
+    Array.from(movieIds).slice(0, 50).map((id) => safeGetMovieById(id))
   );
   const movieMap = new Map(movieResults.map(({ movie }) => [movie.id, movie]));
 
@@ -226,7 +226,8 @@ RULES:
 - If you have data about what their friends watched and liked, occasionally mention it as social proof (e.g. "your friend X loved this one too").`;
 }
 
-export const maxDuration = 30;
+// Vercel Hobby = 10s max, Pro = 60s. Keep at 10 for compatibility.
+export const maxDuration = 10;
 
 export async function POST(req: NextRequest) {
   const requestId = createRequestId();
