@@ -75,6 +75,8 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
   );
   const hasMultiplePicks = groupPicks.length > 1;
   const isHost = room?.hostId === user?.uid;
+  const memberCount = (room?.members as any[])?.length ?? 1;
+  const isSolo = memberCount <= 1;
 
   const handleStartBonusRound = async () => {
     try {
@@ -214,7 +216,7 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
               </View>
             )}
           />
-          {isHost && (
+          {isHost && !isSolo && (
             <TouchableOpacity onPress={handleStartBonusRound} style={styles.bonusStartButton}>
               <Text style={styles.bonusStartText}>Start bonus round to pick one</Text>
             </TouchableOpacity>
@@ -225,14 +227,14 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
       {/* Winner */}
       {winner && (
         <View style={styles.winnerSection}>
-          <Text style={styles.winnerLabel}>The Group Picks</Text>
+          <Text style={styles.winnerLabel}>{isSolo ? 'Top Pick' : 'Winner'}</Text>
           <OptimizedImage
             uri={getPosterUrl(winner.movie.posterPath, 'large')}
             style={styles.winnerPoster}
           />
           <Text style={styles.winnerTitle}>{winner.movie.title}</Text>
           <Text style={styles.winnerScore}>
-            {winner.rightSwipes}/{winner.totalVoters} votes
+            {winner.rightSwipes}/{winner.totalVoters} voted yes · {Math.round(winner.finalScore)}%
           </Text>
         </View>
       )}

@@ -35,8 +35,8 @@ export function ScoreBreakdown({ scores }: ScoreBreakdownProps) {
                 <View style={[styles.bar, { width: `${Math.max(barWidth, 2)}%` }]} />
               </View>
               <Text style={styles.score}>
-                {item.rightSwipes}/{item.rightSwipes + item.leftSwipes} votes
-                {' · '}Score: {item.finalScore.toFixed(2)}
+                {item.rightSwipes}/{item.totalVoters} voted yes
+                {' · '}{Math.round(item.finalScore)}%
               </Text>
             </View>
           </View>

@@ -141,6 +141,13 @@ export function SubmitMoviesScreen({ navigation, route }: SubmitMoviesScreenProp
         }
       />
 
+      {isHost && totalMovies >= 1 && totalMovies < 2 && (
+        <View style={styles.bottomSection}>
+          <Text style={{ color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 8 }}>
+            Add at least 2 movies to start swiping
+          </Text>
+        </View>
+      )}
       {isHost && totalMovies >= 2 && (
         <View style={styles.bottomSection}>
           <Button

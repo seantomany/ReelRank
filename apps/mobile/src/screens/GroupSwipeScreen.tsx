@@ -74,7 +74,7 @@ export function GroupSwipeScreen({ navigation, route }: GroupSwipeScreenProps) {
     <View style={styles.container}>
       <View style={styles.progressContainer}>
         <Text style={styles.progressText}>
-          {done ? 'All done! Waiting for others...' : `${currentIndex + 1} of ${movies.length}`}
+          {done ? 'All done! Computing results...' : `${currentIndex + 1} of ${movies.length}`}
         </Text>
         <ProgressBar progress={progress} color={colors.primary} style={styles.progressBar} />
       </View>
@@ -86,7 +86,7 @@ export function GroupSwipeScreen({ navigation, route }: GroupSwipeScreenProps) {
           <View style={styles.doneContainer}>
             <Text style={styles.doneEmoji}>✅</Text>
             <Text style={styles.doneText}>
-              You've swiped on all movies!{'\n'}Waiting for everyone to finish...
+              You've swiped on all movies!{'\n'}Computing results...
             </Text>
           </View>
         ) : (
