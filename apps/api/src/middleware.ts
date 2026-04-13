@@ -1,23 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS = new Set([
   'https://reelrank.vercel.app',
-  'https://www.reelrank.vercel.app',
-  process.env.ALLOWED_ORIGIN,
-].filter(Boolean) as string[];
+  'https://reel-rank-web.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+]);
 
-// Allow localhost in development
-if (process.env.NODE_ENV !== 'production') {
-  ALLOWED_ORIGINS.push('http://localhost:3000', 'http://localhost:3001');
+// Add any custom origin from env
+if (process.env.ALLOWED_ORIGIN) {
+  ALLOWED_ORIGINS.add(process.env.ALLOWED_ORIGIN);
 }
 
 function getAllowedOrigin(request: NextRequest): string {
   const origin = request.headers.get('origin') ?? '';
-  // Mobile apps send no origin — allow them
+  // No origin = mobile app or server-to-server — allow
   if (!origin) return '*';
-  if (ALLOWED_ORIGINS.includes(origin)) return origin;
-  return ALLOWED_ORIGINS[0];
+  // Vercel preview deployments
+  if (origin.endsWith('.vercel.app')) return origin;
+  // Explicit whitelist
+  if (ALLOWED_ORIGINS.has(origin)) return origin;
+  return '';
 }
 
 export function middleware(request: NextRequest) {
