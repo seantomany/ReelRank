@@ -266,20 +266,28 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
     let stream;
-    try {
-      stream = await client.messages.stream({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'AI service unavailable';
-      console.error(`[${requestId}] Anthropic init error:`, msg);
-      return new Response(JSON.stringify({ error: msg, requestId }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        stream = await client.messages.stream({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+        });
+        break;
+      } catch (err: unknown) {
+        const isOverloaded = err instanceof Error && (err.message.includes('overloaded') || err.message.includes('Overloaded') || (err as any).status === 529);
+        if (isOverloaded && attempt < 2) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        const msg = err instanceof Error ? err.message : 'AI service unavailable';
+        console.error(`[${requestId}] Anthropic error (attempt ${attempt + 1}):`, msg);
+        return new Response(JSON.stringify({ error: 'AI is temporarily busy. Please try again in a moment.', requestId }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
     }
 
     const encoder = new TextEncoder();
