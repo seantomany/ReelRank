@@ -236,6 +236,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const messages: ChatMessage[] = body.messages ?? [];
 
+    // Limit conversation size to prevent abuse
+    if (messages.length > 50) {
+      return new Response(JSON.stringify({ error: 'Conversation too long. Start a new chat.', requestId }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const totalLength = messages.reduce((sum, m) => sum + m.content.length, 0);
+    if (totalLength > 50_000) {
+      return new Response(JSON.stringify({ error: 'Messages too large', requestId }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!messages.length || messages[messages.length - 1].role !== 'user') {
       return new Response(JSON.stringify({ error: 'Messages must end with a user message', requestId }), {
         status: 400,
@@ -261,7 +277,7 @@ export async function POST(req: NextRequest) {
       console.error(`[${requestId}] Anthropic init error:`, msg);
       return new Response(JSON.stringify({ error: msg, requestId }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN ?? 'https://reelrank.vercel.app' },
       });
     }
 
@@ -290,7 +306,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN ?? 'https://reelrank.vercel.app',
         'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       },
     });

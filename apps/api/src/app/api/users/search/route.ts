@@ -35,7 +35,6 @@ export const GET = withAuth(async (req: NextRequest, { user, requestId }) => {
         displayName: d.displayName ?? d.username ?? d.email?.split('@')[0],
         username: d.username ?? null,
         photoUrl: d.photoUrl ?? null,
-        email: d.email,
       });
     }
   }
