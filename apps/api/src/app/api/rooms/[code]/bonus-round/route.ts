@@ -43,13 +43,14 @@ export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { u
       status: 'active',
     });
 
+    const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
+    const movies = movieResults.map(({ movie }) => movie);
+
     await publishToRoom(room.code, ABLY_EVENTS.BONUS_STARTED, {
       bonusRoundId: bonusRef.id,
       movieIds,
+      movies,
     });
-
-    const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
-    const movies = movieResults.map(({ movie }) => movie);
 
     return NextResponse.json({
       data: {

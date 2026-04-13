@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Avatar, Chip } from 'react-native-paper';
+import { Text, Avatar } from 'react-native-paper';
 import { colors, spacing, borderRadius } from '../theme';
 import type { RoomMember } from '@reelrank/shared';
 
@@ -25,11 +25,13 @@ export function MemberList({ members, hostId }: MemberListProps) {
               <Avatar.Text size={40} label={initials} />
             )}
             <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{displayName}</Text>
+              <Text style={styles.memberName} numberOfLines={1}>
+                {displayName}
+              </Text>
               {isHost && (
-                <Chip compact style={styles.hostChip} textStyle={styles.hostChipText}>
-                  Host
-                </Chip>
+                <View style={styles.hostBadge}>
+                  <Text style={styles.hostBadgeText}>Host</Text>
+                </View>
               )}
             </View>
           </View>
@@ -58,16 +60,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   memberName: {
+    flexShrink: 1,
     color: colors.text,
     fontSize: 16,
     fontWeight: '500',
   },
-  hostChip: {
+  hostBadge: {
+    flexShrink: 0,
     backgroundColor: colors.accent,
-    height: 24,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
   },
-  hostChipText: {
+  hostBadgeText: {
     color: colors.onAccent,
     fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 14,
   },
 });

@@ -172,39 +172,20 @@ export function AIScreen({ navigation }: AIScreenProps) {
 
       try {
         const token = await getIdToken();
-        const res = await fetch(`${API_URL}/api/ai/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ messages: newMessages }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({ error: 'Request failed' }));
-          throw new Error(errData.error ?? `Request failed (${res.status})`);
-        }
-
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error('No response stream');
-
-        const decoder = new TextDecoder();
+        // React Native's fetch does not expose ReadableStream on response.body,
+        // so use XMLHttpRequest with onprogress to consume the SSE stream.
         let assistantContent = '';
         let buffer = '';
+        let lastIndex = 0;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
+        const processChunk = (chunk: string) => {
+          buffer += chunk;
           const lines = buffer.split('\n');
           buffer = lines.pop() ?? '';
-
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const payload = line.slice(6).trim();
-            if (payload === '[DONE]') break;
+            if (!payload || payload === '[DONE]') continue;
             try {
               const parsed = JSON.parse(payload);
               if (parsed.error) throw new Error(parsed.error);
@@ -213,10 +194,57 @@ export function AIScreen({ navigation }: AIScreenProps) {
                 setMessages([...newMessages, { role: 'assistant', content: assistantContent }]);
               }
             } catch (e) {
-              if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
+              if (e instanceof Error && !(e.message.includes('JSON'))) throw e;
             }
           }
-        }
+        };
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_URL}/api/ai/chat`);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+          xhr.onprogress = () => {
+            const newText = xhr.responseText.slice(lastIndex);
+            lastIndex = xhr.responseText.length;
+            if (newText) {
+              try {
+                processChunk(newText);
+              } catch (e) {
+                reject(e instanceof Error ? e : new Error(String(e)));
+                xhr.abort();
+              }
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const tail = xhr.responseText.slice(lastIndex);
+              if (tail) {
+                try {
+                  processChunk(tail);
+                } catch (e) {
+                  reject(e instanceof Error ? e : new Error(String(e)));
+                  return;
+                }
+              }
+              resolve();
+            } else {
+              try {
+                const errData = JSON.parse(xhr.responseText);
+                reject(new Error(errData.error ?? `Request failed (${xhr.status})`));
+              } catch {
+                reject(new Error(`Request failed (${xhr.status})`));
+              }
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network request failed'));
+          xhr.ontimeout = () => reject(new Error('Request timed out'));
+
+          xhr.send(JSON.stringify({ messages: newMessages }));
+        });
 
         if (assistantContent) {
           setMessages([...newMessages, { role: 'assistant', content: assistantContent }]);

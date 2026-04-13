@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { useRoom } from '../hooks/useRoom';
+import { subscribeToBonusEvents } from '../config/ably';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { ScoreBreakdown } from '../components/ScoreBreakdown';
 import { getPosterUrl } from '@reelrank/shared';
@@ -40,6 +41,28 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
   useEffect(() => {
     if (room?.name) setRoomName(room.name);
   }, [room]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToBonusEvents(roomCode, getIdToken, {
+      onBonusStarted: (data) => {
+        setBonusActive(true);
+        setBonusVoted(false);
+        setBonusWinner(null);
+        if (data.movies && data.movies.length > 0) {
+          setBonusMovies(data.movies);
+        }
+      },
+      onBonusCompleted: (data) => {
+        setBonusActive(false);
+        setBonusVoted(false);
+        if (data.movie) {
+          setBonusWinner(data.movie);
+          setSnackbar({ visible: true, message: `Bonus round winner: ${data.movie.title}` });
+        }
+      },
+    });
+    return unsubscribe;
+  }, [roomCode, getIdToken]);
 
   const handleSaveName = async () => {
     setEditingName(false);
