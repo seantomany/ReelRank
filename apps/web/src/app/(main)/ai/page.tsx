@@ -313,7 +313,12 @@ export default function AIPage() {
         );
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
-          const msg = (err as Error).message || "Something went wrong";
+          let msg = (err as Error).message || "Something went wrong";
+          if (msg.includes("overloaded") || msg.includes("Overloaded")) {
+            msg = "AI is temporarily busy. Please try again in a moment.";
+          } else if (msg.includes("type") && msg.includes("error")) {
+            try { msg = JSON.parse(msg).error?.message ?? msg; } catch { /* keep original */ }
+          }
           setError(msg);
           if (!assistantMessage.content) {
             setMessages(newMessages);
