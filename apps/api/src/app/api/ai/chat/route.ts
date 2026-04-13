@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         stream = await client.messages.stream({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-opus-4-20250514',
           max_tokens: 1024,
           system: systemPrompt,
           messages: messages.map(m => ({ role: m.role, content: m.content })),
