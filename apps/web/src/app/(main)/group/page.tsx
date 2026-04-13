@@ -65,7 +65,7 @@ export default function GroupHubPage() {
       if (historyRes.data) setHistory(historyRes.data);
       else if (historyRes.error) toast.error(historyRes.error);
       if (userRes.data) {
-        const userData = userRes.data as Record<string, unknown>;
+        const userData = userRes.data as unknown as { pinnedRooms?: string[] };
         if (Array.isArray(userData.pinnedRooms)) {
           setPinnedCodes(userData.pinnedRooms);
         }
