@@ -37,13 +37,19 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const deckRef = useRef<SwipeDeckRef>(null);
   const seenMovieIds = useRef(new Set<number>());
-  const seenIdsLoaded = useRef(false);
+  const [swipedIdsReady, setSwipedIdsReady] = useState(false);
 
   useEffect(() => {
     loadGenres();
     loadSwipedIds();
   }, []);
-  useEffect(() => { setPage(1); loadMovies(1); }, [selectedGenre]);
+
+  // Only load movies once swiped IDs are fetched
+  useEffect(() => {
+    if (!swipedIdsReady) return;
+    setPage(1);
+    loadMovies(1, selectedGenre);
+  }, [selectedGenre, swipedIdsReady]);
 
   const loadSwipedIds = async () => {
     try {
@@ -52,10 +58,10 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
       if (res.data && Array.isArray(res.data)) {
         for (const id of res.data) seenMovieIds.current.add(id as number);
       }
-      seenIdsLoaded.current = true;
     } catch {
-      // non-critical
+      // non-critical — proceed with empty filter
     }
+    setSwipedIdsReady(true);
   };
 
   const loadGenres = async () => {
@@ -63,19 +69,31 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     if (res.data) setGenres(res.data as any);
   };
 
-  const loadMovies = async (p = page) => {
+  const loadMovies = async (p = page, genre = selectedGenre) => {
     setLoading(true);
     try {
-      const res = selectedGenre
-        ? await api.movies.discover(selectedGenre, p)
-        : await api.movies.trending(p);
-      if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
-        const fresh = ((res.data as any).movies as Movie[]).filter(
-          (m) => !seenMovieIds.current.has(m.id)
-        );
-        setMovies(fresh);
-        setCurrentIndex(0);
+      // Try up to 5 pages to find unswiped movies
+      let currentPage = p;
+      let fresh: Movie[] = [];
+      for (let attempt = 0; attempt < 5 && fresh.length === 0; attempt++) {
+        const res = genre
+          ? await api.movies.discover(genre, currentPage)
+          : await api.movies.trending(currentPage);
+        if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
+          const allMovies = (res.data as any).movies as Movie[];
+          fresh = allMovies.filter((m) => !seenMovieIds.current.has(m.id));
+          if (fresh.length === 0 && allMovies.length > 0) {
+            currentPage++;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
       }
+      setPage(currentPage);
+      setMovies(fresh);
+      setCurrentIndex(0);
     } catch {
       setSnackbar({ visible: true, message: 'Failed to load movies' });
     } finally {
@@ -131,7 +149,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             <Text style={styles.emptyText}>No more movies</Text>
             <TouchableOpacity
               style={styles.loadMoreBtn}
-              onPress={() => { const n = page + 1; setPage(n); loadMovies(n); }}
+              onPress={() => loadMovies(page + 1, selectedGenre)}
             >
               <Text style={styles.loadMoreText}>Load More</Text>
             </TouchableOpacity>
