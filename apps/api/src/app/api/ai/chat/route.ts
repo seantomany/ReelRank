@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
       console.error(`[${requestId}] Anthropic init error:`, msg);
       return new Response(JSON.stringify({ error: msg, requestId }), {
         status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN ?? 'https://reelrank.vercel.app' },
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
 
@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN ?? 'https://reelrank.vercel.app',
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       },
     });
