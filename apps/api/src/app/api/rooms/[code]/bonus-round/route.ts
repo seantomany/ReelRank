@@ -16,6 +16,62 @@ const BonusVoteInputSchema = z.object({
   movieId: z.number().int().positive(),
 });
 
+export const GET = withAuthAndRateLimit('general', async (_req: NextRequest, { user, requestId, params }) => {
+  const code = validateRoomCode(params?.code ?? '', requestId);
+  const { roomId } = await findRoomByCode(code, requestId);
+  await verifyRoomMembership(roomId, user.id, requestId);
+
+  const roomRef = getDb().collection(COLLECTIONS.rooms).doc(roomId);
+  const activeSnap = await roomRef
+    .collection('bonusRounds')
+    .where('status', '==', 'active')
+    .limit(1)
+    .get();
+
+  if (!activeSnap.empty) {
+    const doc = activeSnap.docs[0];
+    const data = doc.data();
+    const movieIds: number[] = data.movieIds ?? [];
+    const movieResults = await Promise.all(movieIds.map((id) => safeGetMovieById(id)));
+    const movies = movieResults.map(({ movie }) => movie);
+    return NextResponse.json({
+      data: {
+        bonusRoundId: doc.id,
+        status: 'active',
+        movieIds,
+        movies,
+        votes: data.votes ?? {},
+      },
+      requestId,
+    });
+  }
+
+  // Fall back to most recently completed bonus round, if any
+  const completedSnap = await roomRef
+    .collection('bonusRounds')
+    .where('status', '==', 'completed')
+    .limit(1)
+    .get();
+
+  if (!completedSnap.empty) {
+    const doc = completedSnap.docs[0];
+    const data = doc.data();
+    const winnerId = data.winnerId as number | undefined;
+    const { movie } = winnerId ? await safeGetMovieById(winnerId) : { movie: null };
+    return NextResponse.json({
+      data: {
+        bonusRoundId: doc.id,
+        status: 'completed',
+        winnerId: winnerId ?? null,
+        movie,
+      },
+      requestId,
+    });
+  }
+
+  return NextResponse.json({ data: null, requestId });
+});
+
 export const POST = withAuthAndRateLimit('general', async (req: NextRequest, { user, requestId, params }) => {
   const code = validateRoomCode(params?.code ?? '', requestId);
   const { roomId, room } = await findRoomByCode(code, requestId);

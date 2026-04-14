@@ -8,9 +8,10 @@ import type { MovieScore } from '@reelrank/shared';
 
 interface ScoreBreakdownProps {
   scores: MovieScore[];
+  startRank?: number;
 }
 
-export function ScoreBreakdown({ scores }: ScoreBreakdownProps) {
+export function ScoreBreakdown({ scores, startRank = 1 }: ScoreBreakdownProps) {
   const maxScore = scores.length > 0 ? scores[0].finalScore : 1;
 
   return (
@@ -22,7 +23,7 @@ export function ScoreBreakdown({ scores }: ScoreBreakdownProps) {
 
         return (
           <View style={styles.row}>
-            <Text style={styles.rank}>#{index + 1}</Text>
+            <Text style={styles.rank}>#{index + startRank}</Text>
             <OptimizedImage
               uri={getPosterUrl(item.movie.posterPath, 'small')}
               style={styles.poster}

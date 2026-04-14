@@ -9,6 +9,14 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+  order: number;
+}
+
 export interface Movie {
   id: number;
   title: string;
@@ -20,6 +28,8 @@ export interface Movie {
   voteCount: number;
   popularity: number;
   genreIds: number[];
+  /** Only populated by single-movie lookups (getMovieById); absent from list endpoints. */
+  cast?: CastMember[];
 }
 
 export type SwipeDirection = 'left' | 'right';

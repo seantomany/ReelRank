@@ -42,6 +42,44 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
     if (room?.name) setRoomName(room.name);
   }, [room]);
 
+  // Hydrate any in-progress / completed bonus round on mount — covers the
+  // race where a non-host arrives on this screen after the host already
+  // started the round.
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const token = await getIdToken();
+        const res = await api.rooms.getBonusRound(roomCode, token);
+        if (cancelled) return;
+        const data = res.data as
+          | null
+          | {
+              status: 'active' | 'completed';
+              movies?: Movie[];
+              movie?: Movie;
+              votes?: Record<string, number>;
+            };
+        if (!data) return;
+        if (data.status === 'active' && data.movies && data.movies.length > 0) {
+          setBonusActive(true);
+          setBonusMovies(data.movies);
+          if (user?.uid && data.votes && data.votes[user.uid] != null) {
+            setBonusVoted(true);
+          }
+        } else if (data.status === 'completed' && data.movie) {
+          setBonusWinner(data.movie);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomCode, getIdToken, user?.uid]);
+
   useEffect(() => {
     const unsubscribe = subscribeToBonusEvents(roomCode, getIdToken, {
       onBonusStarted: (data) => {
@@ -266,7 +304,7 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
       {runnersUp.length > 0 && (
         <View style={styles.runnersUpSection}>
           <Text style={styles.runnersUpTitle}>Runners Up</Text>
-          <ScoreBreakdown scores={runnersUp} />
+          <ScoreBreakdown scores={runnersUp} startRank={2} />
         </View>
       )}
 

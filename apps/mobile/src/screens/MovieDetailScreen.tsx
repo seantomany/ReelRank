@@ -149,6 +149,42 @@ export function MovieDetailScreen({ navigation, route }: MovieDetailScreenProps)
           </Button>
         </View>
 
+        {movie.cast && movie.cast.length > 0 && (
+          <View style={styles.castSection}>
+            <Text style={styles.sectionTitle}>Cast</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.castRow}
+            >
+              {movie.cast.map((member) => (
+                <View key={member.id} style={styles.castMember}>
+                  {member.profilePath ? (
+                    <OptimizedImage
+                      uri={`https://image.tmdb.org/t/p/w185${member.profilePath}`}
+                      style={styles.castAvatar}
+                    />
+                  ) : (
+                    <View style={[styles.castAvatar, styles.castAvatarFallback]}>
+                      <Text style={styles.castInitial}>
+                        {member.name.charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.castName} numberOfLines={2}>
+                    {member.name}
+                  </Text>
+                  {member.character ? (
+                    <Text style={styles.castCharacter} numberOfLines={2}>
+                      {member.character}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {hasProviders && (
           <View style={styles.providersSection}>
             <Text style={styles.sectionTitle}>Where to Watch</Text>
@@ -303,6 +339,47 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  castSection: {
+    marginTop: spacing.md,
+  },
+  castRow: {
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingRight: spacing.md,
+  },
+  castMember: {
+    width: 80,
+    alignItems: 'center',
+  },
+  castAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  castAvatarFallback: {
+    backgroundColor: colors.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  castInitial: {
+    fontSize: 20,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  castName: {
+    fontSize: 12,
+    color: colors.text,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  castCharacter: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 2,
+    lineHeight: 12,
   },
   providersSection: {
     marginTop: spacing.md,

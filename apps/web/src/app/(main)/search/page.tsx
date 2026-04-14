@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Plus, Check } from "lucide-react";
 import { api } from "@/lib/api";
 import { getPosterUrl } from "@reelrank/shared";
 import type { Movie } from "@reelrank/shared";
@@ -14,8 +15,29 @@ export default function SearchPage() {
   const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  async function addToWatchlist(movie: Movie, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (addedIds.has(movie.id) || pendingId === movie.id) return;
+    setPendingId(movie.id);
+    const res = await api.solo.swipe(movie.id, "right");
+    setPendingId(null);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
+    setAddedIds((prev) => {
+      const next = new Set(prev);
+      next.add(movie.id);
+      return next;
+    });
+    toast.success(`${movie.title} added to watchlist`);
+  }
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -90,39 +112,52 @@ export default function SearchPage() {
                 ? new Date(movie.releaseDate).getFullYear()
                 : null;
 
+              const added = addedIds.has(movie.id);
+              const pending = pendingId === movie.id;
               return (
-                <Link
-                  key={movie.id}
-                  href={`/movie/${movie.id}`}
-                  className="flex items-center gap-3 py-2"
-                >
-                  {poster ? (
-                    <Image
-                      src={poster}
-                      alt={movie.title}
-                      width={40}
-                      height={60}
-                      className="w-10 h-15 shrink-0 rounded-sm object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-15 shrink-0 rounded-sm bg-[#111] flex items-center justify-center text-[9px] text-[#888]">
-                      N/A
+                <div key={movie.id} className="flex items-center gap-3 py-2">
+                  <Link href={`/movie/${movie.id}`} className="flex flex-1 items-center gap-3 min-w-0">
+                    {poster ? (
+                      <Image
+                        src={poster}
+                        alt={movie.title}
+                        width={40}
+                        height={60}
+                        className="w-10 h-15 shrink-0 rounded-sm object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-15 shrink-0 rounded-sm bg-[#111] flex items-center justify-center text-[9px] text-[#888]">
+                        N/A
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-[#e8e8e8]">
+                        {movie.title}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {year && (
+                          <span className="text-xs text-[#888]">{year}</span>
+                        )}
+                        <span className="text-xs text-[#ff2d55]">
+                          {movie.voteAverage.toFixed(1)}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-[#e8e8e8]">
-                      {movie.title}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {year && (
-                        <span className="text-xs text-[#888]">{year}</span>
-                      )}
-                      <span className="text-xs text-[#ff2d55]">
-                        {movie.voteAverage.toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => addToWatchlist(movie, e)}
+                    disabled={added || pending}
+                    aria-label={added ? "Added to watchlist" : "Add to watchlist"}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                      added
+                        ? "border-[#34c759]/40 bg-[#34c759]/10 text-[#34c759]"
+                        : "border-[rgba(255,255,255,0.1)] text-[#888] hover:text-[#ff2d55] hover:border-[#ff2d55]/40"
+                    } ${pending ? "opacity-50" : ""}`}
+                  >
+                    {added ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  </button>
+                </div>
               );
             })}
           </div>

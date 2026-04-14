@@ -255,6 +255,41 @@ export default function MovieDetailPage(props: { params: Promise<{ id: string }>
           </section>
         )}
 
+        {movie.cast && movie.cast.length > 0 && (
+          <section className="mt-10 pt-8 border-t border-[#222]" aria-labelledby="cast-heading">
+            <h2 id="cast-heading" className="text-sm font-semibold text-[#e8e8e8] mb-4">
+              Cast
+            </h2>
+            <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+              {movie.cast.map((member) => (
+                <div key={member.id} className="shrink-0 w-[80px]">
+                  {member.profilePath ? (
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w185${member.profilePath}`}
+                      alt={member.name}
+                      width={80}
+                      height={80}
+                      className="w-20 h-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-[#1a1a1a] flex items-center justify-center text-xs text-[#555]">
+                      {member.name.charAt(0)}
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-[#e8e8e8] line-clamp-2 leading-tight">
+                    {member.name}
+                  </p>
+                  {member.character && (
+                    <p className="mt-0.5 text-[10px] text-[#666] line-clamp-2 leading-tight">
+                      {member.character}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {providers &&
           (providers.stream.length > 0 ||
             providers.rent.length > 0 ||

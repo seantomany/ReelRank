@@ -92,6 +92,10 @@ export function SubmitMoviesScreen({ navigation, route }: SubmitMoviesScreenProp
   const movies = (room?.movies ?? []) as any[];
   const totalMovies = movies.length;
   const isHost = room?.hostId === authUser?.uid;
+  const addedIds = React.useMemo(
+    () => new Set<number>(movies.map((m) => Number(m.movieId ?? m.id)).filter((n) => Number.isFinite(n))),
+    [movies]
+  );
 
   return (
     <View style={styles.container}>
@@ -103,7 +107,12 @@ export function SubmitMoviesScreen({ navigation, route }: SubmitMoviesScreenProp
       </View>
 
       <View style={styles.searchContainer}>
-        <MovieSearchBar onSelect={handleSubmitMovie} placeholder="Search and add movies..." />
+        <MovieSearchBar
+          onSelect={handleSubmitMovie}
+          placeholder="Search and add movies..."
+          addedIds={addedIds}
+          keepResultsAfterSelect
+        />
       </View>
 
       <FlatList

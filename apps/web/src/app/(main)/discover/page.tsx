@@ -502,28 +502,42 @@ function SwipeCard({
   const scale = useTransform(x, [-300, 0, 300], [1.02, 1, 1.02]);
   const wantOpacity = useTransform(x, [0, 80], [0, 1]);
   const passOpacity = useTransform(x, [-80, 0], [1, 0]);
+  const [flipped, setFlipped] = useState(false);
 
   const poster = getPosterUrl(movie.posterPath, "large");
   const year = movie.releaseDate?.split("-")[0] ?? "";
   const rating = movie.voteAverage > 0 ? movie.voteAverage.toFixed(1) : null;
 
+  // Reset flip when a new movie becomes the top card
+  useEffect(() => {
+    if (!isTop) setFlipped(false);
+  }, [isTop]);
+
   const handleDragEnd = () => {
-    if (disabled) return;
+    if (disabled || flipped) return;
     const cx = x.get();
     if (cx > SWIPE_THRESHOLD) onSwipe("right");
     else if (cx < -SWIPE_THRESHOLD) onSwipe("left");
   };
 
+  const handleTap = () => {
+    if (!isTop || disabled) return;
+    // Ignore taps that are actually the end of a drag
+    if (Math.abs(x.get()) > 4) return;
+    setFlipped((f) => !f);
+  };
+
   return (
     <motion.div
-      className="absolute inset-0 overflow-hidden rounded-sm"
+      className="absolute inset-0 rounded-sm"
       style={{
         x: isTop ? x : 0,
         rotate: isTop ? rotate : 0,
         scale: isTop ? scale : 1,
         zIndex: 2 - index,
         pointerEvents: isTop ? "auto" : "none",
-        cursor: isTop ? "grab" : "default",
+        cursor: isTop ? (flipped ? "pointer" : "grab") : "default",
+        perspective: 1200,
       }}
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{
@@ -537,62 +551,105 @@ function SwipeCard({
         rotate: exitDir === "right" ? 15 : -15,
         transition: { duration: 0.25, ease: "easeIn" },
       }}
-      drag={isTop ? "x" : false}
+      drag={isTop && !flipped ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.7}
       onDragEnd={handleDragEnd}
+      onTap={handleTap}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
     >
-      {poster ? (
-        <Image
-          src={poster}
-          alt={movie.title}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 280px, 320px"
-          priority={index === 0}
-          draggable={false}
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[#111] text-sm text-[#888]">
-          No poster
-        </div>
-      )}
-
-      {/* Drag labels */}
-      {isTop && (
-        <>
-          <motion.span
-            className="absolute left-4 top-6 text-2xl font-bold uppercase tracking-wider text-[#ff2d55]"
-            style={{ opacity: wantOpacity, rotate: -12 }}
-          >
-            WANT
-          </motion.span>
-          <motion.span
-            className="absolute right-4 top-6 text-2xl font-bold uppercase tracking-wider text-red-400"
-            style={{ opacity: passOpacity, rotate: 12 }}
-          >
-            PASS
-          </motion.span>
-        </>
-      )}
-
-      {/* Bottom gradient with title / year / rating */}
-      <div
-        className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-20"
-        style={{
-          background:
-            "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
-        }}
+      <motion.div
+        className="absolute inset-0 rounded-sm"
+        style={{ transformStyle: "preserve-3d" }}
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="text-lg font-semibold text-white">{movie.title}</h2>
-        <div className="mt-1 flex items-center gap-2">
-          {year && <span className="text-sm text-white/60">{year}</span>}
-          {rating && (
-            <span className="text-sm text-[#ff2d55]">{rating}</span>
+        {/* Front */}
+        <div
+          className="absolute inset-0 overflow-hidden rounded-sm"
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+        >
+          {poster ? (
+            <Image
+              src={poster}
+              alt={movie.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 280px, 320px"
+              priority={index === 0}
+              draggable={false}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[#111] text-sm text-[#888]">
+              No poster
+            </div>
           )}
+
+          {/* Drag labels */}
+          {isTop && (
+            <>
+              <motion.span
+                className="absolute left-4 top-6 text-2xl font-bold uppercase tracking-wider text-[#ff2d55]"
+                style={{ opacity: wantOpacity, rotate: -12 }}
+              >
+                WANT
+              </motion.span>
+              <motion.span
+                className="absolute right-4 top-6 text-2xl font-bold uppercase tracking-wider text-red-400"
+                style={{ opacity: passOpacity, rotate: 12 }}
+              >
+                PASS
+              </motion.span>
+            </>
+          )}
+
+          {/* Bottom gradient with title / year / rating */}
+          <div
+            className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-20"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+            }}
+          >
+            <h2 className="text-lg font-semibold text-white">{movie.title}</h2>
+            <div className="mt-1 flex items-center gap-2">
+              {year && <span className="text-sm text-white/60">{year}</span>}
+              {rating && (
+                <span className="text-sm text-[#ff2d55]">{rating}</span>
+              )}
+              {isTop && (
+                <span className="ml-auto text-[10px] uppercase tracking-wider text-white/50">
+                  Tap for info
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+
+        {/* Back */}
+        <div
+          className="absolute inset-0 overflow-y-auto rounded-sm bg-[#0a0a0a] border border-[rgba(255,255,255,0.08)] p-5"
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
+        >
+          <h2 className="text-lg font-semibold text-[#e8e8e8] leading-tight">{movie.title}</h2>
+          <div className="mt-1 flex items-center gap-2 text-xs">
+            {year && <span className="text-[#888]">{year}</span>}
+            {rating && <span className="text-[#ff2d55] font-medium">{rating} / 10</span>}
+          </div>
+          {movie.overview ? (
+            <p className="mt-4 text-sm leading-relaxed text-[#bbb]">{movie.overview}</p>
+          ) : (
+            <p className="mt-4 text-sm text-[#666] italic">No description available.</p>
+          )}
+          <p className="mt-6 text-[10px] uppercase tracking-wider text-[#555] text-center">
+            Tap to flip back
+          </p>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

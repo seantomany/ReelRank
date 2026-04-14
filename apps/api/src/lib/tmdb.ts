@@ -126,10 +126,33 @@ export async function getRecommendations(
   };
 }
 
+interface TmdbCastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_path: string | null;
+  order: number;
+}
+
 export async function getMovieById(id: number): Promise<Movie> {
-  const m = await tmdbFetch<TmdbMovieResult & { genres?: TmdbGenre[] }>(
-    `/movie/${id}`
-  );
+  const m = await tmdbFetch<
+    TmdbMovieResult & {
+      genres?: TmdbGenre[];
+      credits?: { cast?: TmdbCastMember[] };
+    }
+  >(`/movie/${id}`, { append_to_response: 'credits' });
+  const rawCast = m.credits?.cast ?? [];
+  const cast = rawCast
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .slice(0, 12)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      character: c.character ?? '',
+      profilePath: c.profile_path ?? null,
+      order: c.order ?? 0,
+    }));
   return {
     id: m.id,
     title: m.title,
@@ -141,6 +164,7 @@ export async function getMovieById(id: number): Promise<Movie> {
     voteCount: m.vote_count,
     popularity: m.popularity,
     genreIds: m.genres?.map((g) => g.id) ?? m.genre_ids ?? [],
+    cast,
   };
 }
 

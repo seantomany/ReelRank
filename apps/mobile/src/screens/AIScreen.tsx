@@ -105,7 +105,14 @@ function MovieCardInline({
             {movie.overview}
           </Text>
         )}
+        <Text style={cardStyles.tapHint}>Tap for details →</Text>
       </View>
+      <Ionicons
+        name="chevron-forward"
+        size={16}
+        color={colors.textSecondary}
+        style={cardStyles.chevron}
+      />
     </TouchableOpacity>
   );
 }
@@ -476,6 +483,16 @@ const cardStyles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     lineHeight: 15,
+  },
+  tapHint: {
+    fontSize: 10,
+    color: colors.accent,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  chevron: {
+    alignSelf: 'center',
+    marginLeft: spacing.xs,
   },
   skeleton: {
     flexDirection: 'row',

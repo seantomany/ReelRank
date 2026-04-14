@@ -21,6 +21,7 @@ export function SearchScreen({ navigation }: SearchScreenProps) {
   const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
@@ -54,16 +55,22 @@ export function SearchScreen({ navigation }: SearchScreenProps) {
   }, [query]);
 
   const saveToWatchlist = useCallback(async (movie: Movie) => {
+    if (addedIds.has(movie.id)) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const token = await getIdToken();
       await api.solo.swipe(movie.id, 'right', token);
+      setAddedIds((prev) => {
+        const next = new Set(prev);
+        next.add(movie.id);
+        return next;
+      });
       setSnackbar({ visible: true, message: `${movie.title} added to watchlist!` });
     } catch (error) {
       console.error('Failed to save movie:', error);
       setSnackbar({ visible: true, message: 'Failed to save. Please try again.' });
     }
-  }, [getIdToken]);
+  }, [getIdToken, addedIds]);
 
   return (
     <View style={styles.container}>
@@ -96,8 +103,16 @@ export function SearchScreen({ navigation }: SearchScreenProps) {
               </Text>
               <Text style={styles.overview} numberOfLines={2}>{item.overview}</Text>
             </View>
-            <TouchableOpacity style={styles.addButton} onPress={() => saveToWatchlist(item)}>
-              <Ionicons name="add-circle-outline" size={28} color={colors.want} />
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => saveToWatchlist(item)}
+              disabled={addedIds.has(item.id)}
+            >
+              <Ionicons
+                name={addedIds.has(item.id) ? 'checkmark-circle' : 'add-circle-outline'}
+                size={28}
+                color={addedIds.has(item.id) ? colors.success : colors.want}
+              />
             </TouchableOpacity>
           </TouchableOpacity>
         )}

@@ -132,6 +132,8 @@ export const api = {
       apiFetch(`/api/rooms/${code}/leave`, { method: 'POST', token }),
     bonusRound: (code: string, data: unknown, token: string) =>
       apiFetch(`/api/rooms/${code}/bonus-round`, { method: 'POST', body: data, token }),
+    getBonusRound: (code: string, token: string) =>
+      apiFetch(`/api/rooms/${code}/bonus-round`, { token }),
     rename: (code: string, name: string, token: string) =>
       apiFetch(`/api/rooms/${code}`, { method: 'PATCH', body: { name }, token }),
     pin: (roomCode: string, token: string) =>
