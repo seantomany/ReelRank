@@ -30,6 +30,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [watchlistSort, setWatchlistSort] = useState<WatchlistSort>('recent');
   const [watchedSort, setWatchedSort] = useState<WatchedSort>('recent');
   const [wlScores, setWlScores] = useState<WatchlistScores>({});
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const tabRequestIdRef = useRef(0);
 
   const totalWlComparisons = Object.values(wlScores).reduce((s, v) => s + v.n, 0) / 2;
@@ -37,12 +38,17 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const loadStats = useCallback(async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, insightsRes] = await Promise.all([
+      const [statsRes, insightsRes, verifyRes] = await Promise.all([
         api.solo.stats(token),
         api.solo.insights(token),
+        api.auth.verify(token),
       ]);
       if (statsRes.data) setStats(statsRes.data);
       if (insightsRes.data) setInsights(insightsRes.data);
+      if (verifyRes.data && typeof verifyRes.data === 'object' && 'photoUrl' in verifyRes.data) {
+        const url = (verifyRes.data as { photoUrl?: string | null }).photoUrl;
+        setPhotoUrl(url ?? null);
+      }
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
@@ -156,7 +162,9 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           >
             <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
-          {user?.photoURL ? (
+          {photoUrl ? (
+            <Avatar.Image size={80} source={{ uri: photoUrl }} />
+          ) : user?.photoURL ? (
             <Avatar.Image size={80} source={{ uri: user.photoURL }} />
           ) : (
             <Avatar.Text size={80} label={initials} />

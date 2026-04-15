@@ -10,14 +10,17 @@ import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
 import type { Movie } from '@reelrank/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 
 interface SearchScreenProps {
   navigation: NativeStackNavigationProp<any>;
+  route?: RouteProp<any>;
 }
 
-export function SearchScreen({ navigation }: SearchScreenProps) {
+export function SearchScreen({ navigation, route }: SearchScreenProps) {
   const { getIdToken } = useAuth();
-  const [query, setQuery] = useState('');
+  const initialQuery = ((route?.params as any)?.query as string | undefined) ?? '';
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });

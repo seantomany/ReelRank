@@ -7,9 +7,43 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
-import type { SoloRanking } from "@reelrank/shared";
+import type { SoloRanking, Movie } from "@reelrank/shared";
 import { getPosterUrl } from "@reelrank/shared";
+import {
+  loadWatchlistScores,
+  applyEloUpdate,
+  saveWatchlistScores,
+  WATCHLIST_INITIAL_ELO,
+  type WatchlistScores,
+} from "@/lib/watchlistRanking";
+
+function soloRankingFromMovie(movie: Movie, rank: number, score: number): SoloRanking {
+  return {
+    movieId: movie.id,
+    movie,
+    beliScore: score,
+    eloScore: score,
+    swipeSignal: 0,
+    rank,
+  };
+}
+
+function buildWatchlistRankings(
+  movies: Movie[],
+  scores: WatchlistScores,
+): SoloRanking[] {
+  const sorted = [...movies].sort((a, b) => {
+    const sa = scores[a.id]?.score ?? WATCHLIST_INITIAL_ELO;
+    const sb = scores[b.id]?.score ?? WATCHLIST_INITIAL_ELO;
+    if (sb !== sa) return sb - sa;
+    return a.title.localeCompare(b.title);
+  });
+  return sorted.map((m, i) =>
+    soloRankingFromMovie(m, i + 1, scores[m.id]?.score ?? WATCHLIST_INITIAL_ELO),
+  );
+}
 
 const seenPairKeys = new Set<string>();
 
@@ -68,6 +102,7 @@ function getSessionLimit(count: number): number {
 export default function RefineRankingsPage() {
   const searchParams = useSearchParams();
   const isWatchlist = searchParams.get("source") === "watchlist";
+  const { user } = useAuth();
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [pair, setPair] = useState<[SoloRanking, SoloRanking] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,26 +111,45 @@ export default function RefineRankingsPage() {
   const [choiceCount, setChoiceCount] = useState(0);
   const [sessionDone, setSessionDone] = useState(false);
   const lastPairRef = useRef<[number, number] | null>(null);
+  const wlScoresRef = useRef<WatchlistScores>({});
 
   const sessionLimit = getSessionLimit(rankings.length);
 
   const fetchRankings = useCallback(async () => {
+    if (isWatchlist) {
+      // Watchlist mode: pool is every unwatched movie on the watchlist.
+      // Ordering comes from local ELO scores, not the server's ranked list.
+      const [wantRes, watchedRes] = await Promise.all([
+        api.solo.lists("want"),
+        api.solo.watched(),
+      ]);
+      if (!wantRes.data) {
+        if (wantRes.error) toast.error(wantRes.error);
+        return null;
+      }
+      const watchedIds = new Set(
+        Array.isArray(watchedRes.data)
+          ? watchedRes.data.map((w) => w.movieId)
+          : [],
+      );
+      const movies = wantRes.data
+        .map((w) => w.movie)
+        .filter((m): m is Movie => !!m && !watchedIds.has(m.id));
+      const scores = user?.uid ? loadWatchlistScores(user.uid) : {};
+      wlScoresRef.current = scores;
+      const data = buildWatchlistRankings(movies, scores);
+      setRankings(data);
+      return data;
+    }
+
     const res = await api.solo.ranking();
     if (!res.data) {
       if (res.error) toast.error(res.error);
       return null;
     }
-    let data = res.data;
-    if (isWatchlist) {
-      const wantRes = await api.solo.lists("want");
-      if (wantRes.data && Array.isArray(wantRes.data)) {
-        const wantIds = new Set(wantRes.data.map((w: any) => w.movieId ?? w.movie?.id));
-        data = data.filter((r) => wantIds.has(r.movieId));
-      }
-    }
-    setRankings(data);
-    return data;
-  }, [isWatchlist]);
+    setRankings(res.data);
+    return res.data;
+  }, [isWatchlist, user?.uid]);
 
   useEffect(() => {
     fetchRankings().then((data) => {
@@ -127,10 +181,39 @@ export default function RefineRankingsPage() {
     setChoosing(true);
     setFlashId(chosenId);
 
+    const winnerId = chosenId;
+    const loserId =
+      pair[0].movieId === chosenId ? pair[1].movieId : pair[0].movieId;
+
+    if (isWatchlist) {
+      // Local-only ELO — never touches solo pairwise / ranked lists.
+      if (user?.uid) {
+        const next = applyEloUpdate(wlScoresRef.current, winnerId, loserId);
+        wlScoresRef.current = next;
+        saveWatchlistScores(user.uid, next);
+      }
+      await new Promise((r) => setTimeout(r, 200));
+      const nextCount = choiceCount + 1;
+      setChoiceCount(nextCount);
+      const currentRankings = buildWatchlistRankings(
+        rankings.map((r) => r.movie),
+        wlScoresRef.current,
+      );
+      setRankings(currentRankings);
+      setFlashId(null);
+      setChoosing(false);
+      if (nextCount >= sessionLimit) {
+        setSessionDone(true);
+        return;
+      }
+      advancePair(currentRankings);
+      return;
+    }
+
     const res = await api.solo.pairwise(
       pair[0].movie.id,
       pair[1].movie.id,
-      chosenId
+      chosenId,
     );
 
     if (res.error) {
@@ -215,10 +298,14 @@ export default function RefineRankingsPage() {
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="text-center">
           <p className="text-sm text-[#888]">
-            Watch and rank some movies first
+            {isWatchlist
+              ? "Your watchlist needs at least 2 movies"
+              : "Watch and rank some movies first"}
           </p>
           <p className="text-xs text-[#888] mt-2">
-            You need at least 2 ranked movies to start refining.
+            {isWatchlist
+              ? "Swipe right in discover to add movies to your watchlist."
+              : "You need at least 2 ranked movies to start refining."}
           </p>
           <Link href="/discover" className="inline-block mt-4 text-sm text-[#ff2d55] hover:text-[#e8e8e8] transition-colors">
             Discover movies
@@ -258,7 +345,9 @@ export default function RefineRankingsPage() {
         {topRanked && (
           <p className="text-xs text-[#888] mt-2 text-center">
             Your #1: <span className="text-[#e8e8e8] font-medium">{topRanked.movie.title}</span>
-            <span className="text-[#ff2d55] ml-1">{topRanked.beliScore.toFixed(1)}</span>
+            {!isWatchlist && (
+              <span className="text-[#ff2d55] ml-1">{topRanked.beliScore.toFixed(1)}</span>
+            )}
           </p>
         )}
       </div>
@@ -303,7 +392,10 @@ export default function RefineRankingsPage() {
             <p className="mt-2 text-sm font-medium text-[#e8e8e8]">{movieA.title}</p>
             <div className="flex items-center gap-2 mt-0.5">
               {yearA && <span className="text-xs text-[#888]">{yearA}</span>}
-              <span className="text-xs text-[#ff2d55] tabular-nums">#{a.rank} · {a.beliScore.toFixed(1)}</span>
+              <span className="text-xs text-[#ff2d55] tabular-nums">
+                #{a.rank}
+                {!isWatchlist && ` · ${a.beliScore.toFixed(1)}`}
+              </span>
             </div>
           </motion.button>
 
@@ -339,7 +431,10 @@ export default function RefineRankingsPage() {
             <p className="mt-2 text-sm font-medium text-[#e8e8e8]">{movieB.title}</p>
             <div className="flex items-center gap-2 mt-0.5">
               {yearB && <span className="text-xs text-[#888]">{yearB}</span>}
-              <span className="text-xs text-[#ff2d55] tabular-nums">#{b.rank} · {b.beliScore.toFixed(1)}</span>
+              <span className="text-xs text-[#ff2d55] tabular-nums">
+                #{b.rank}
+                {!isWatchlist && ` · ${b.beliScore.toFixed(1)}`}
+              </span>
             </div>
           </motion.button>
         </motion.div>

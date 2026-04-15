@@ -36,6 +36,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [watchlistCount, setWatchlistCount] = useState(0);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,14 +51,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const loadData = async () => {
     try {
       const token = await getIdToken();
-      const [statsRes, trendingRes, suggestionsRes, feedRes] = await Promise.all([
+      const [statsRes, trendingRes, suggestionsRes, feedRes, watchlistRes] = await Promise.all([
         api.solo.stats(token),
         api.movies.trending(),
         api.solo.suggestions(token),
         api.social.feed(token),
+        api.solo.lists('want', token),
       ]);
 
       if (statsRes.data) setStats(statsRes.data);
+      if (Array.isArray(watchlistRes.data)) {
+        setWatchlistCount(watchlistRes.data.length);
+      }
       if (trendingRes.data && typeof trendingRes.data === 'object' && 'movies' in trendingRes.data) {
         setTrending((trendingRes.data as any).movies.slice(0, 12));
       }
@@ -74,7 +79,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const username = user?.displayName ?? user?.email?.split('@')[0] ?? '';
-  const uniqueRanked = stats?.uniqueRanked ?? 0;
   const moviesWatched = stats?.moviesWatched ?? 0;
   const hero = trending[0];
   const heroBackdrop = hero ? getBackdropUrl(hero.backdropPath, 'large') : null;
@@ -87,7 +91,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.greeting}>Hey, {username}</Text>
           {stats && (
             <Text style={styles.statsLine}>
-              {uniqueRanked} ranked · {moviesWatched} watched
+              {moviesWatched} watched · {watchlistCount} on watchlist
             </Text>
           )}
         </View>

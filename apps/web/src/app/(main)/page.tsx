@@ -101,7 +101,7 @@ export default function HomePage() {
           {stats && (
             <>
               {" — "}
-              {stats.uniqueRanked ?? 0} films ranked · {stats.moviesWatched} watched
+              {stats.moviesWatched} watched · {watchlist.length} on watchlist
             </>
           )}
         </p>

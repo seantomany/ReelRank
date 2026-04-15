@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Search, Home, Compass, Users, User, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 
@@ -20,6 +21,7 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,6 +31,24 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setPhotoUrl(null);
+      return;
+    }
+    let cancelled = false;
+    api.auth.verify().then((res) => {
+      if (cancelled) return;
+      if (res.data && "photoUrl" in res.data) {
+        const url = (res.data as { photoUrl?: string | null }).photoUrl;
+        if (url) setPhotoUrl(url);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -71,9 +91,19 @@ export function Navbar({ onSearchOpen }: { onSearchOpen: () => void }) {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-7 h-7 rounded-full bg-[#111] flex items-center justify-center text-[#888] hover:text-[#e8e8e8] transition-colors cursor-pointer text-xs font-medium"
+              className="w-7 h-7 rounded-full bg-[#111] flex items-center justify-center text-[#888] hover:text-[#e8e8e8] transition-colors cursor-pointer text-xs font-medium overflow-hidden"
+              aria-label="Account menu"
             >
-              {user?.email?.charAt(0).toUpperCase()}
+              {photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.email?.charAt(0).toUpperCase()
+              )}
             </button>
             {menuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-[rgba(255,255,255,0.08)] rounded-md py-1 z-50">

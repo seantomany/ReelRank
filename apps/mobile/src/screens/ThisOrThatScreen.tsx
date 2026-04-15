@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-import { recordWatchlistChoice } from '../utils/watchlistRanking';
+import { recordWatchlistChoice, loadWatchlistScores, WATCHLIST_INITIAL_ELO } from '../utils/watchlistRanking';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
@@ -46,12 +46,13 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
       const token = await getIdToken();
 
       if (isWatchlist) {
-        const [rankRes, wantRes, watchedRes] = await Promise.all([
-          api.solo.ranking(token),
+        // Watchlist mode: ordering is driven by local ELO scores only.
+        // We never read the backend Beli ranking here because watched-movie
+        // rankings and watchlist rankings are intentionally separate.
+        const [wantRes, watchedRes] = await Promise.all([
           api.solo.lists('want', token),
           api.solo.getWatched(token),
         ]);
-        const existingRankings = (rankRes.data && Array.isArray(rankRes.data) ? rankRes.data : []) as SoloRanking[];
 
         const watchedIds = new Set<number>();
         if (watchedRes.data && Array.isArray(watchedRes.data)) {
@@ -61,19 +62,28 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
         }
 
         if (wantRes.data && Array.isArray(wantRes.data)) {
+          const scores = user?.uid ? await loadWatchlistScores(user.uid) : {};
           const wantItems = (wantRes.data as any[]).filter((w: any) => {
             const mid = w.movieId ?? w.movie?.id;
             return !watchedIds.has(mid);
           });
-          const wantRankings: SoloRanking[] = wantItems.map((w: any, i: number) => {
+          const sorted = [...wantItems].sort((a: any, b: any) => {
+            const ida = a.movieId ?? a.movie?.id;
+            const idb = b.movieId ?? b.movie?.id;
+            const sa = scores[ida]?.score ?? WATCHLIST_INITIAL_ELO;
+            const sb = scores[idb]?.score ?? WATCHLIST_INITIAL_ELO;
+            return sb - sa;
+          });
+          const wantRankings: SoloRanking[] = sorted.map((w: any, i: number) => {
             const movieId = w.movieId ?? w.movie?.id;
-            const existing = existingRankings.find((r) => r.movieId === movieId);
-            if (existing) return existing;
+            const score = scores[movieId]?.score ?? WATCHLIST_INITIAL_ELO;
             return {
               movieId,
               movie: w.movie ?? w,
-              rank: existingRankings.length + i + 1,
-              beliScore: 0,
+              rank: i + 1,
+              beliScore: score,
+              eloScore: score,
+              swipeSignal: 0,
             } as SoloRanking;
           });
 
@@ -148,12 +158,23 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
       setSessionDone(true);
     }
 
+    // Watchlist mode: purely local ELO, never touch the solo pairwise API.
+    // Solo pairwise rewrites the user's watched-movie Beli ranking which must
+    // stay isolated from watchlist ordering.
+    if (isWatchlist) {
+      if (user?.uid) {
+        try {
+          await recordWatchlistChoice(user.uid, chosen.movieId, other.movieId);
+        } catch {
+          // non-fatal — continue the session
+        }
+      }
+      if (newCount < SESSION_LIMIT) pickPair(rankings);
+      return;
+    }
+
     try {
       const token = await getIdToken();
-
-      if (isWatchlist && user?.uid) {
-        recordWatchlistChoice(user.uid, chosen.movieId, other.movieId).catch(() => {});
-      }
 
       const res = await api.solo.pairwise(
         chosen.movieId,
@@ -176,7 +197,7 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
       setSnackbar({ visible: true, message: 'Failed to save choice' });
       if (newCount < SESSION_LIMIT) pickPair(rankings);
     }
-  }, [choiceCount, rankings, getIdToken]);
+  }, [choiceCount, rankings, getIdToken, isWatchlist, user?.uid]);
 
   const handleRestart = () => {
     setChoiceCount(0);

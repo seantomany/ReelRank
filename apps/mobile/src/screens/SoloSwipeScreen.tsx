@@ -21,6 +21,8 @@ interface SoloSwipeScreenProps {
 
 const GENRE_BAR_HEIGHT = 40;
 const ACTION_BAR_HEIGHT = 72;
+const LOW_DECK_THRESHOLD = 3;
+const MAX_SKIP_PAGES = 5;
 
 export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const { getIdToken } = useAuth();
@@ -31,6 +33,7 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedGenre, setSelectedGenre] = useState<number | null>(
     (route.params as any)?.genreId ?? null
   );
@@ -39,18 +42,12 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
   const deckRef = useRef<SwipeDeckRef>(null);
   const seenMovieIds = useRef(new Set<number>());
   const [swipedIdsReady, setSwipedIdsReady] = useState(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     loadGenres();
     loadSwipedIds();
   }, []);
-
-  // Only load movies once swiped IDs are fetched
-  useEffect(() => {
-    if (!swipedIdsReady) return;
-    setPage(1);
-    loadMovies(1, selectedGenre);
-  }, [selectedGenre, swipedIdsReady]);
 
   const loadSwipedIds = async () => {
     try {
@@ -70,37 +67,83 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
     if (res.data) setGenres(res.data as any);
   };
 
-  const loadMovies = async (p = page, genre = selectedGenre) => {
-    setLoading(true);
-    try {
-      // Try up to 5 pages to find unswiped movies
-      let currentPage = p;
-      let fresh: Movie[] = [];
-      for (let attempt = 0; attempt < 5 && fresh.length === 0; attempt++) {
+  // Fetch a single page and append (or replace) unswiped movies into the deck.
+  const fetchPage = useCallback(
+    async (
+      pageNum: number,
+      genre: number | null,
+      { replace = false }: { replace?: boolean } = {},
+    ): Promise<number> => {
+      if (fetchingRef.current) return 0;
+      fetchingRef.current = true;
+      try {
         const res = genre
-          ? await api.movies.discover(genre, currentPage)
-          : await api.movies.trending(currentPage);
-        if (res.data && typeof res.data === 'object' && 'movies' in res.data) {
-          const allMovies = (res.data as any).movies as Movie[];
-          fresh = allMovies.filter((m) => !seenMovieIds.current.has(m.id));
-          if (fresh.length === 0 && allMovies.length > 0) {
-            currentPage++;
-          } else {
-            break;
-          }
-        } else {
-          break;
+          ? await api.movies.discover(genre, pageNum)
+          : await api.movies.trending(pageNum);
+        if (!res.data || typeof res.data !== 'object' || !('movies' in res.data)) {
+          return 0;
         }
+        const data = res.data as { movies: Movie[]; totalPages?: number };
+        if (typeof data.totalPages === 'number') setTotalPages(data.totalPages);
+        const fresh = data.movies.filter((m) => !seenMovieIds.current.has(m.id));
+        if (replace) {
+          setMovies(fresh);
+          setCurrentIndex(0);
+        } else if (fresh.length > 0) {
+          setMovies((prev) => [...prev, ...fresh]);
+        }
+        return fresh.length;
+      } catch {
+        setSnackbar({ visible: true, message: 'Failed to load movies' });
+        return 0;
+      } finally {
+        fetchingRef.current = false;
       }
-      setPage(currentPage);
-      setMovies(fresh);
+    },
+    [],
+  );
+
+  // Reload the deck when genre changes, walking pages forward until we get
+  // at least one unswiped movie (capped at MAX_SKIP_PAGES).
+  const loadInitialDeck = useCallback(
+    async (genre: number | null) => {
+      setLoading(true);
+      setMovies([]);
       setCurrentIndex(0);
-    } catch {
-      setSnackbar({ visible: true, message: 'Failed to load movies' });
-    } finally {
+      let startPage = 1;
+      let skipped = 0;
+      while (skipped < MAX_SKIP_PAGES) {
+        const count = await fetchPage(startPage, genre, { replace: true });
+        if (count > 0) break;
+        skipped++;
+        startPage++;
+      }
+      setPage(startPage);
       setLoading(false);
+    },
+    [fetchPage],
+  );
+
+  useEffect(() => {
+    if (!swipedIdsReady) return;
+    loadInitialDeck(selectedGenre);
+  }, [selectedGenre, swipedIdsReady, loadInitialDeck]);
+
+  // Auto pre-fetch the next page when the deck gets low.
+  useEffect(() => {
+    const remaining = movies.length - currentIndex;
+    if (
+      !loading &&
+      remaining > 0 &&
+      remaining <= LOW_DECK_THRESHOLD &&
+      page < totalPages &&
+      !fetchingRef.current
+    ) {
+      const next = page + 1;
+      setPage(next);
+      fetchPage(next, selectedGenre);
     }
-  };
+  }, [movies.length, currentIndex, page, totalPages, selectedGenre, loading, fetchPage]);
 
   // When user navigates back to this screen, re-filter the deck
   useFocusEffect(
@@ -163,7 +206,11 @@ export function SoloSwipeScreen({ navigation, route }: SoloSwipeScreenProps) {
             <Text style={styles.emptyText}>No more movies</Text>
             <TouchableOpacity
               style={styles.loadMoreBtn}
-              onPress={() => loadMovies(page + 1, selectedGenre)}
+              onPress={() => {
+                const next = page + 1;
+                setPage(next);
+                fetchPage(next, selectedGenre);
+              }}
             >
               <Text style={styles.loadMoreText}>Load More</Text>
             </TouchableOpacity>

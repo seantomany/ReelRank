@@ -37,29 +37,35 @@ const STARTERS = [
 
 function MovieCardInline({
   searchQuery,
+  getIdToken,
   onPress,
+  onFallbackPress,
 }: {
   searchQuery: string;
+  getIdToken: () => Promise<string>;
   onPress: (movieId: number) => void;
+  onFallbackPress: (query: string) => void;
 }) {
   const [movie, setMovie] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    api.ai
-      .movieSearch(searchQuery)
-      .then((res) => {
+    (async () => {
+      try {
+        const token = await getIdToken();
+        const res = await api.ai.movieSearch(searchQuery, token);
         if (!cancelled && res.data) setMovie(res.data);
-      })
-      .catch(() => {})
-      .finally(() => {
+      } catch {
+        // ignored — fall through to fallback view
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [searchQuery]);
+  }, [searchQuery, getIdToken]);
 
   if (loading) {
     return (
@@ -75,10 +81,15 @@ function MovieCardInline({
 
   if (!movie) {
     return (
-      <View style={cardStyles.fallback}>
+      <TouchableOpacity
+        style={cardStyles.fallback}
+        onPress={() => onFallbackPress(searchQuery)}
+        activeOpacity={0.7}
+      >
         <Ionicons name="sparkles" size={16} color={colors.accent} />
         <Text style={cardStyles.fallbackText}>{searchQuery}</Text>
-      </View>
+        <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+      </TouchableOpacity>
     );
   }
 
@@ -277,6 +288,10 @@ export function AIScreen({ navigation }: AIScreenProps) {
     navigation.navigate('MovieDetail', { movieId });
   };
 
+  const navigateToSearch = (query: string) => {
+    navigation.navigate('Search', { query });
+  };
+
   const renderContent = (text: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];
     const regex = /\[MOVIE_SEARCH:([^\]]+)\]|\[MOVIE:(\d+):([^\]]+)\]/g;
@@ -296,7 +311,9 @@ export function AIScreen({ navigation }: AIScreenProps) {
         <MovieCardInline
           key={`m-${match.index}`}
           searchQuery={query}
+          getIdToken={getIdToken}
           onPress={navigateToMovie}
+          onFallbackPress={navigateToSearch}
         />
       );
 

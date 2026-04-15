@@ -23,45 +23,13 @@ import {
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { BarChart3, ChevronRight, Users, X } from "lucide-react";
-
-const WATCHLIST_RANK_KEY_PREFIX = "reelrank:watchlist-ranking:v1:";
-const INITIAL_ELO = 1500;
-const ELO_K = 32;
-
-type WatchlistScores = Record<number, { score: number; n: number }>;
-
-function loadWatchlistScores(userId: string): WatchlistScores {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(WATCHLIST_RANK_KEY_PREFIX + userId);
-    return raw ? (JSON.parse(raw) as WatchlistScores) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveWatchlistScores(userId: string, scores: WatchlistScores) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(WATCHLIST_RANK_KEY_PREFIX + userId, JSON.stringify(scores));
-  } catch {}
-}
-
-function applyEloUpdate(
-  scores: WatchlistScores,
-  winnerId: number,
-  loserId: number
-): WatchlistScores {
-  const winner = scores[winnerId] ?? { score: INITIAL_ELO, n: 0 };
-  const loser = scores[loserId] ?? { score: INITIAL_ELO, n: 0 };
-  const expectedW = 1 / (1 + Math.pow(10, (loser.score - winner.score) / 400));
-  const expectedL = 1 - expectedW;
-  return {
-    ...scores,
-    [winnerId]: { score: winner.score + ELO_K * (1 - expectedW), n: winner.n + 1 },
-    [loserId]: { score: loser.score + ELO_K * (0 - expectedL), n: loser.n + 1 },
-  };
-}
+import {
+  loadWatchlistScores,
+  applyEloUpdate,
+  saveWatchlistScores,
+  WATCHLIST_INITIAL_ELO as INITIAL_ELO,
+  type WatchlistScores,
+} from "@/lib/watchlistRanking";
 
 function pickTwo<T>(arr: T[]): [T, T] | null {
   if (arr.length < 2) return null;
@@ -87,6 +55,7 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [username, setUsername] = useState("");
   const [savedUsername, setSavedUsername] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
@@ -103,6 +72,10 @@ export default function ProfilePage() {
       if (res.data?.username) {
         setUsername(res.data.username);
         setSavedUsername(res.data.username);
+      }
+      if (res.data && "photoUrl" in res.data) {
+        const url = (res.data as { photoUrl?: string | null }).photoUrl;
+        if (url) setPhotoUrl(url);
       }
     });
     api.solo.stats().then((res) => {
@@ -175,7 +148,8 @@ export default function ProfilePage() {
         saveWatchlistScores(user.uid, next);
         return next;
       });
-      api.solo.pairwise(winnerId, loserId, winnerId).catch(() => {});
+      // Watchlist ranking is purely local — never writes to solo pairwise
+      // rankings, which are reserved for movies the user has actually watched.
     },
     [user?.uid]
   );
@@ -230,8 +204,17 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-2xl px-4 py-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#111] border border-[rgba(255,255,255,0.06)]">
-          <span className="text-lg font-semibold text-[#888]">{initial}</span>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#111] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoUrl}
+              alt={displayName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="text-lg font-semibold text-[#888]">{initial}</span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           {editingUsername ? (

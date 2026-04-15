@@ -161,10 +161,10 @@ export const api = {
   ai: {
     chat: (messages: { role: string; content: string }[], token: string) =>
       apiFetch('/api/ai/chat', { method: 'POST', body: { messages }, token }),
-    movieSearch: (query: string) =>
-      cachedGet(`/api/ai/movie-search?q=${encodeURIComponent(query)}`),
-    movieCard: (id: number) =>
-      cachedGet(`/api/ai/movie-card/${id}`),
+    movieSearch: (query: string, token: string) =>
+      apiFetch(`/api/ai/movie-search?q=${encodeURIComponent(query)}`, { token }),
+    movieCard: (id: number, token: string) =>
+      apiFetch(`/api/ai/movie-card/${id}`, { token }),
   },
 
   social: {
