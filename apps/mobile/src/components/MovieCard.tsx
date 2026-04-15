@@ -6,10 +6,13 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { OptimizedImage } from './OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, borderRadius, spacing } from '../theme';
 import type { Movie } from '@reelrank/shared';
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 export function getCardDimensions(screenWidth: number, screenHeight: number, availableHeight?: number) {
   const cardWidth = screenWidth - 24;
@@ -48,10 +51,15 @@ export function MovieCard({ movie, availableHeight, flipped = false }: MovieCard
         uri={getPosterUrl(movie.posterPath, 'large')}
         style={styles.poster}
       />
-      <Animated.View style={[styles.bottomGradient, frontStyle]} pointerEvents="none">
+      <AnimatedLinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
+        locations={[0, 0.55, 1]}
+        style={[styles.bottomGradient, frontStyle]}
+        pointerEvents="none"
+      >
         <Text style={styles.title} numberOfLines={1}>{movie.title}</Text>
         <Text style={styles.year}>{year}</Text>
-      </Animated.View>
+      </AnimatedLinearGradient>
       <Animated.View
         style={[styles.backOverlay, backStyle]}
         pointerEvents={flipped ? 'auto' : 'none'}
@@ -92,9 +100,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    paddingTop: 40,
-    backgroundColor: 'transparent',
-    backgroundImage: undefined,
+    paddingTop: 72,
   },
   title: {
     color: '#fff',

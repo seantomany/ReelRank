@@ -595,13 +595,21 @@ function SwipeCard({
             <>
               <motion.span
                 className="absolute left-4 top-6 text-2xl font-bold uppercase tracking-wider text-[#ff2d55]"
-                style={{ opacity: wantOpacity, rotate: -12 }}
+                style={{
+                  opacity: wantOpacity,
+                  rotate: -12,
+                  textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.55)",
+                }}
               >
                 WANT
               </motion.span>
               <motion.span
                 className="absolute right-4 top-6 text-2xl font-bold uppercase tracking-wider text-red-400"
-                style={{ opacity: passOpacity, rotate: 12 }}
+                style={{
+                  opacity: passOpacity,
+                  rotate: 12,
+                  textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.55)",
+                }}
               >
                 PASS
               </motion.span>
@@ -613,17 +621,37 @@ function SwipeCard({
             className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-20"
             style={{
               background:
-                "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+                "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%)",
             }}
           >
-            <h2 className="text-lg font-semibold text-white">{movie.title}</h2>
+            <h2
+              className="text-lg font-semibold text-white"
+              style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85), 0 0 12px rgba(0,0,0,0.5)" }}
+            >
+              {movie.title}
+            </h2>
             <div className="mt-1 flex items-center gap-2">
-              {year && <span className="text-sm text-white/60">{year}</span>}
+              {year && (
+                <span
+                  className="text-sm text-white/80"
+                  style={{ textShadow: "0 1px 3px rgba(0,0,0,0.85)" }}
+                >
+                  {year}
+                </span>
+              )}
               {rating && (
-                <span className="text-sm text-[#ff2d55]">{rating}</span>
+                <span
+                  className="text-sm text-[#ff2d55]"
+                  style={{ textShadow: "0 1px 3px rgba(0,0,0,0.85)" }}
+                >
+                  {rating}
+                </span>
               )}
               {isTop && (
-                <span className="ml-auto text-[10px] uppercase tracking-wider text-white/50">
+                <span
+                  className="ml-auto text-[10px] uppercase tracking-wider text-white/70"
+                  style={{ textShadow: "0 1px 3px rgba(0,0,0,0.85)" }}
+                >
                   Tap to flip
                 </span>
               )}

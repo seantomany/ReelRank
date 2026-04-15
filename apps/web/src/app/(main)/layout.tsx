@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AuthGuard } from "@/components/auth-guard";
 import { Navbar } from "@/components/navbar";
 import { SearchModal } from "@/components/search-modal";
+import { BackToAIPill } from "@/components/back-to-ai-pill";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -27,6 +28,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <main className="pt-12 md:pt-14 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0 min-h-[100dvh]">
         {children}
       </main>
+      <BackToAIPill />
     </AuthGuard>
   );
 }
