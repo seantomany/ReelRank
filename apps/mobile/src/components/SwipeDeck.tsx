@@ -1,6 +1,7 @@
-import React, { useCallback, useImperativeHandle, forwardRef } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useCallback, useEffect, useImperativeHandle, useState, forwardRef } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -35,6 +36,12 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
   ({ movies, currentIndex, onSwipe, onCardPress, availableHeight }, ref) => {
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
+    const [flipped, setFlipped] = useState(false);
+
+    // Reset flip when the top card changes
+    useEffect(() => {
+      setFlipped(false);
+    }, [currentIndex]);
 
     const triggerSwipe = useCallback(
       (direction: SwipeDirection) => {
@@ -56,11 +63,16 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
     }));
 
     const handleTap = useCallback(() => {
+      setFlipped((f) => !f);
+    }, []);
+
+    const handleInfoPress = useCallback(() => {
       const movie = movies[currentIndex];
       if (movie && onCardPress) onCardPress(movie);
     }, [movies, currentIndex, onCardPress]);
 
     const panGesture = Gesture.Pan()
+      .enabled(!flipped)
       .onUpdate((event) => {
         translateX.value = event.translationX;
         translateY.value = event.translationY;
@@ -128,17 +140,31 @@ export const SwipeDeck = forwardRef<SwipeDeckRef, SwipeDeckProps>(
 
     return (
       <View style={styles.container}>
-        <GestureDetector gesture={composedGesture}>
-          <Animated.View style={[styles.cardWrapper, cardStyle]}>
-            <MovieCard movie={currentMovie} availableHeight={availableHeight} />
-            <Animated.View style={[styles.overlay, styles.wantOverlay, wantOverlayStyle]}>
-              <Text style={[styles.overlayText, styles.wantText]}>WANT</Text>
+        <View style={styles.cardStack}>
+          <GestureDetector gesture={composedGesture}>
+            <Animated.View style={[styles.cardWrapper, cardStyle]}>
+              <MovieCard
+                movie={currentMovie}
+                availableHeight={availableHeight}
+                flipped={flipped}
+              />
+              <Animated.View style={[styles.overlay, styles.wantOverlay, wantOverlayStyle]}>
+                <Text style={[styles.overlayText, styles.wantText]}>WANT</Text>
+              </Animated.View>
+              <Animated.View style={[styles.overlay, styles.passOverlay, passOverlayStyle]}>
+                <Text style={[styles.overlayText, styles.passText]}>PASS</Text>
+              </Animated.View>
             </Animated.View>
-            <Animated.View style={[styles.overlay, styles.passOverlay, passOverlayStyle]}>
-              <Text style={[styles.overlayText, styles.passText]}>PASS</Text>
-            </Animated.View>
-          </Animated.View>
-        </GestureDetector>
+          </GestureDetector>
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={handleInfoPress}
+            hitSlop={10}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="information-circle" size={30} color="rgba(255,255,255,0.92)" />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -152,8 +178,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cardStack: {
+    position: 'relative',
+  },
   cardWrapper: {
     alignItems: 'center',
+  },
+  infoButton: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

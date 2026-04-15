@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { recordWatchlistChoice } from '../utils/watchlistRanking';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
@@ -25,7 +26,7 @@ interface ThisOrThatScreenProps {
 export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
   const source = (route?.params as any)?.source as string | undefined;
   const isWatchlist = source === 'watchlist';
-  const { getIdToken } = useAuth();
+  const { getIdToken, user } = useAuth();
   const [rankings, setRankings] = useState<SoloRanking[]>([]);
   const [pairA, setPairA] = useState<SoloRanking | null>(null);
   const [pairB, setPairB] = useState<SoloRanking | null>(null);
@@ -149,6 +150,11 @@ export function ThisOrThatScreen({ route }: ThisOrThatScreenProps) {
 
     try {
       const token = await getIdToken();
+
+      if (isWatchlist && user?.uid) {
+        recordWatchlistChoice(user.uid, chosen.movieId, other.movieId).catch(() => {});
+      }
+
       const res = await api.solo.pairwise(
         chosen.movieId,
         other.movieId,

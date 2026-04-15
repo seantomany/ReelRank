@@ -4,6 +4,7 @@ import { Text, Switch, Button, Divider, Snackbar, Avatar } from 'react-native-pa
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
@@ -66,17 +67,43 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
+      quality: 0.3,
+      base64: false,
     });
 
-    if (result.canceled || !result.assets?.[0]?.base64) return;
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    const sourceUri = result.assets[0].uri;
 
-    const base64 = result.assets[0].base64;
-    const dataUrl = `data:image/jpeg;base64,${base64}`;
+    const MAX_BYTES = 200_000;
+    const qualities = [0.3, 0.2, 0.1];
+    let dataUrl: string | null = null;
 
-    if (dataUrl.length > 200_000) {
-      setSnackbar({ visible: true, message: 'Photo is too large, please pick a smaller one' });
+    try {
+      setSnackbar({ visible: true, message: 'Compressing photo…' });
+      for (const q of qualities) {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          sourceUri,
+          [{ resize: { width: 400, height: 400 } }],
+          {
+            compress: q,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          },
+        );
+        if (!manipulated.base64) continue;
+        const candidate = `data:image/jpeg;base64,${manipulated.base64}`;
+        if (candidate.length <= MAX_BYTES) {
+          dataUrl = candidate;
+          break;
+        }
+      }
+    } catch {
+      setSnackbar({ visible: true, message: 'Failed to process photo' });
+      return;
+    }
+
+    if (!dataUrl) {
+      setSnackbar({ visible: true, message: 'Photo still too large after compression, try another image' });
       return;
     }
 

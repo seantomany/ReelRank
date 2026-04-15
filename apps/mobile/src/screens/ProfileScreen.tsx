@@ -8,13 +8,14 @@ import { api } from '../utils/api';
 import { OptimizedImage } from '../components/OptimizedImage';
 import { getPosterUrl } from '@reelrank/shared';
 import { colors, spacing, borderRadius } from '../theme';
+import { loadWatchlistScores, WATCHLIST_INITIAL_ELO, type WatchlistScores } from '../utils/watchlistRanking';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface ProfileScreenProps {
   navigation: NativeStackNavigationProp<any>;
 }
 
-type WatchlistSort = 'recent' | 'alpha' | 'genre';
+type WatchlistSort = 'recent' | 'alpha' | 'genre' | 'ranked';
 type WatchedSort = 'recent' | 'rating' | 'alpha';
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
@@ -28,7 +29,10 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
   const [watchlistSort, setWatchlistSort] = useState<WatchlistSort>('recent');
   const [watchedSort, setWatchedSort] = useState<WatchedSort>('recent');
+  const [wlScores, setWlScores] = useState<WatchlistScores>({});
   const tabRequestIdRef = useRef(0);
+
+  const totalWlComparisons = Object.values(wlScores).reduce((s, v) => s + v.n, 0) / 2;
 
   const loadStats = useCallback(async () => {
     try {
@@ -82,7 +86,10 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
     useCallback(() => {
       loadStats();
       loadTabData();
-    }, [loadStats, loadTabData])
+      if (user?.uid) {
+        loadWatchlistScores(user.uid).then(setWlScores).catch(() => {});
+      }
+    }, [loadStats, loadTabData, user?.uid])
   );
 
   const onRefresh = useCallback(async () => {
@@ -108,6 +115,14 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           const ga = (a.movie ?? a).genreIds?.[0] ?? 999;
           const gb = (b.movie ?? b).genreIds?.[0] ?? 999;
           return ga - gb;
+        }
+        if (watchlistSort === 'ranked') {
+          const idA = (a.movie ?? a).id;
+          const idB = (b.movie ?? b).id;
+          const sa = wlScores[idA]?.score ?? WATCHLIST_INITIAL_ELO;
+          const sb = wlScores[idB]?.score ?? WATCHLIST_INITIAL_ELO;
+          if (sb !== sa) return sb - sa;
+          return ((a.movie ?? a).title ?? '').localeCompare((b.movie ?? b).title ?? '');
         }
         return 0;
       });
@@ -172,14 +187,12 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
               <Text style={styles.statValue}>{stats.totalSwipes ?? 0}</Text>
               <Text style={styles.statLabel}>Discovered</Text>
             </View>
+            <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.moviesWatched ?? 0}</Text>
               <Text style={styles.statLabel}>Watched</Text>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{stats.uniqueRanked ?? 0}</Text>
-              <Text style={styles.statLabel}>Ranked</Text>
-            </View>
+            <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.winRate ?? 0}%</Text>
               <Text style={styles.statLabel}>Like Rate</Text>
@@ -223,14 +236,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <View>
             <View style={styles.sortRow}>
               <Text style={styles.sortLabel}>Sort</Text>
-              {(['recent', 'alpha', 'genre'] as WatchlistSort[]).map((s) => (
+              {(['recent', 'alpha', 'genre', 'ranked'] as WatchlistSort[]).map((s) => (
                 <TouchableOpacity
                   key={s}
-                  onPress={() => setWatchlistSort(s)}
+                  onPress={() => {
+                    setWatchlistSort(s);
+                    if (s === 'ranked' && totalWlComparisons < 3 && tabData.length >= 2) {
+                      navigation.navigate('ThisOrThat', { source: 'watchlist' });
+                    }
+                  }}
                   style={[styles.sortPill, watchlistSort === s && styles.sortPillActive]}
                 >
                   <Text style={[styles.sortPillText, watchlistSort === s && styles.sortPillTextActive]}>
-                    {s === 'recent' ? 'Recent' : s === 'alpha' ? 'A–Z' : 'Genre'}
+                    {s === 'recent' ? 'Recent' : s === 'alpha' ? 'A–Z' : s === 'genre' ? 'Genre' : 'Ranked'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -241,7 +259,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                 onPress={() => navigation.navigate('ThisOrThat', { source: 'watchlist' })}
               >
                 <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
-                <Text style={styles.rankWatchlistText}>Rank Watchlist with This or That</Text>
+                <Text style={styles.rankWatchlistText}>
+                  {watchlistSort === 'ranked' && totalWlComparisons >= 3
+                    ? 'Refine rankings with This or That'
+                    : 'Rank Watchlist with This or That'}
+                </Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
@@ -408,15 +430,22 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: spacing.lg,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     marginBottom: spacing.sm,
   },
   statBox: {
     flex: 1,
     alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
   },
   statValue: {
     fontSize: 20,

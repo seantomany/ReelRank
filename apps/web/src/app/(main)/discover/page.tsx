@@ -8,8 +8,9 @@ import {
   useMotionValue,
   useTransform,
 } from "framer-motion";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { X, Check, Eye } from "lucide-react";
+import { X, Check, Eye, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { RankFlowModal } from "@/components/rank-flow-modal";
@@ -619,11 +620,23 @@ function SwipeCard({
               )}
               {isTop && (
                 <span className="ml-auto text-[10px] uppercase tracking-wider text-white/50">
-                  Tap for info
+                  Tap to flip
                 </span>
               )}
             </div>
           </div>
+
+          {isTop && (
+            <Link
+              href={`/movie/${movie.id}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="View movie details"
+              className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white/85 backdrop-blur-sm transition-colors hover:bg-black/75 hover:text-white"
+            >
+              <Info className="h-4 w-4" />
+            </Link>
+          )}
         </div>
 
         {/* Back */}
@@ -648,6 +661,18 @@ function SwipeCard({
           <p className="mt-6 text-[10px] uppercase tracking-wider text-[#555] text-center">
             Tap to flip back
           </p>
+
+          {isTop && (
+            <Link
+              href={`/movie/${movie.id}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="View movie details"
+              className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#111] border border-[rgba(255,255,255,0.08)] text-[#aaa] transition-colors hover:text-[#e8e8e8]"
+            >
+              <Info className="h-4 w-4" />
+            </Link>
+          )}
         </div>
       </motion.div>
     </motion.div>

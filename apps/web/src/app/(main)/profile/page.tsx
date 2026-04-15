@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { getPosterUrl } from "@reelrank/shared";
@@ -21,7 +22,54 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { BarChart3, ChevronRight, Users } from "lucide-react";
+import { BarChart3, ChevronRight, Users, X } from "lucide-react";
+
+const WATCHLIST_RANK_KEY_PREFIX = "reelrank:watchlist-ranking:v1:";
+const INITIAL_ELO = 1500;
+const ELO_K = 32;
+
+type WatchlistScores = Record<number, { score: number; n: number }>;
+
+function loadWatchlistScores(userId: string): WatchlistScores {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(WATCHLIST_RANK_KEY_PREFIX + userId);
+    return raw ? (JSON.parse(raw) as WatchlistScores) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveWatchlistScores(userId: string, scores: WatchlistScores) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WATCHLIST_RANK_KEY_PREFIX + userId, JSON.stringify(scores));
+  } catch {}
+}
+
+function applyEloUpdate(
+  scores: WatchlistScores,
+  winnerId: number,
+  loserId: number
+): WatchlistScores {
+  const winner = scores[winnerId] ?? { score: INITIAL_ELO, n: 0 };
+  const loser = scores[loserId] ?? { score: INITIAL_ELO, n: 0 };
+  const expectedW = 1 / (1 + Math.pow(10, (loser.score - winner.score) / 400));
+  const expectedL = 1 - expectedW;
+  return {
+    ...scores,
+    [winnerId]: { score: winner.score + ELO_K * (1 - expectedW), n: winner.n + 1 },
+    [loserId]: { score: loser.score + ELO_K * (0 - expectedL), n: loser.n + 1 },
+  };
+}
+
+function pickTwo<T>(arr: T[]): [T, T] | null {
+  if (arr.length < 2) return null;
+  const a = Math.floor(Math.random() * arr.length);
+  let b = Math.floor(Math.random() * arr.length);
+  while (b === a) b = Math.floor(Math.random() * arr.length);
+  return [arr[a], arr[b]];
+}
 
 interface Stats {
   totalSwipes: number;
@@ -102,8 +150,35 @@ export default function ProfilePage() {
     setSavingUsername(false);
   };
 
-  const [watchlistSort, setWatchlistSort] = useState<"recent" | "alpha" | "genre">("recent");
+  const [watchlistSort, setWatchlistSort] = useState<"recent" | "alpha" | "genre" | "ranked">("recent");
   const [watchedSort, setWatchedSort] = useState<"recent" | "rating" | "alpha" | "genre">("recent");
+
+  // Watchlist ELO rankings (stored per user in localStorage)
+  const [wlScores, setWlScores] = useState<WatchlistScores>({});
+  const [showRankModal, setShowRankModal] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setWlScores(loadWatchlistScores(user.uid));
+  }, [user?.uid]);
+
+  const totalComparisons = useMemo(
+    () => Object.values(wlScores).reduce((s, v) => s + v.n, 0) / 2,
+    [wlScores]
+  );
+
+  const recordPairwise = useCallback(
+    (winnerId: number, loserId: number) => {
+      if (!user?.uid) return;
+      setWlScores((prev) => {
+        const next = applyEloUpdate(prev, winnerId, loserId);
+        saveWatchlistScores(user.uid, next);
+        return next;
+      });
+      api.solo.pairwise(winnerId, loserId, winnerId).catch(() => {});
+    },
+    [user?.uid]
+  );
 
   const GENRE_MAP: Record<number, string> = {};
   [...watchlist, ...watched].forEach((item) => {
@@ -125,8 +200,14 @@ export default function ProfilePage() {
       const gb = b.movie.genreIds[0] ?? 999;
       return ga - gb || a.movie.title.localeCompare(b.movie.title);
     }
+    if (watchlistSort === "ranked") {
+      const sa = wlScores[a.movie.id]?.score ?? INITIAL_ELO;
+      const sb = wlScores[b.movie.id]?.score ?? INITIAL_ELO;
+      if (sb !== sa) return sb - sa;
+      return a.movie.title.localeCompare(b.movie.title);
+    }
     return 0;
-  }), [watchlist, watchlistSort]);
+  }), [watchlist, watchlistSort, wlScores]);
 
   const sortedWatched = useMemo(() => [...watched].sort((a, b) => {
     if (watchedSort === "rating") return (b.rating ?? 0) - (a.rating ?? 0);
@@ -424,11 +505,30 @@ export default function ProfilePage() {
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className="text-[10px] text-[#888] uppercase tracking-wider">Sort</span>
                   <SortPill active={watchlistSort === "recent"} onClick={() => setWatchlistSort("recent")}>Recent</SortPill>
                   <SortPill active={watchlistSort === "alpha"} onClick={() => setWatchlistSort("alpha")}>A–Z</SortPill>
                   <SortPill active={watchlistSort === "genre"} onClick={() => setWatchlistSort("genre")}>Genre</SortPill>
+                  <SortPill
+                    active={watchlistSort === "ranked"}
+                    onClick={() => {
+                      setWatchlistSort("ranked");
+                      if (totalComparisons < 3 && watchlist.length >= 2) {
+                        setShowRankModal(true);
+                      }
+                    }}
+                  >
+                    Ranked
+                  </SortPill>
+                  {watchlistSort === "ranked" && watchlist.length >= 2 && (
+                    <button
+                      onClick={() => setShowRankModal(true)}
+                      className="ml-auto text-[11px] text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2"
+                    >
+                      {totalComparisons < 3 ? "Start ranking" : "Refine"}
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 md:grid-cols-5 gap-1">
                   {sortedWatchlist.map((item) => {
@@ -528,6 +628,147 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {showRankModal && (
+        <WatchlistRankModal
+          watchlist={watchlist.map((w) => w.movie)}
+          onPick={recordPairwise}
+          onClose={() => setShowRankModal(false)}
+          totalComparisons={totalComparisons}
+        />
+      )}
+    </div>
+  );
+}
+
+function WatchlistRankModal({
+  watchlist,
+  onPick,
+  onClose,
+  totalComparisons,
+}: {
+  watchlist: Movie[];
+  onPick: (winnerId: number, loserId: number) => void;
+  onClose: () => void;
+  totalComparisons: number;
+}) {
+  const [pair, setPair] = useState<[Movie, Movie] | null>(() => pickTwo(watchlist));
+  const [sessionCount, setSessionCount] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  const nextPair = useCallback(() => {
+    const next = pickTwo(watchlist);
+    setPair(next);
+  }, [watchlist]);
+
+  const handlePick = (winner: Movie, loser: Movie) => {
+    if (busy) return;
+    setBusy(true);
+    onPick(winner.id, loser.id);
+    setSessionCount((c) => c + 1);
+    setTimeout(() => {
+      nextPair();
+      setBusy(false);
+    }, 220);
+  };
+
+  if (!pair) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+        <div className="w-full max-w-sm rounded-2xl bg-[#0a0a0a] border border-[rgba(255,255,255,0.06)] p-6 text-center">
+          <p className="text-sm text-[#e8e8e8]">Add at least 2 movies to your watchlist to rank them.</p>
+          <button
+            onClick={onClose}
+            className="mt-4 text-xs text-[#888] underline underline-offset-2 hover:text-[#e8e8e8]"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const [a, b] = pair;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-2xl rounded-2xl bg-[#0a0a0a] border border-[rgba(255,255,255,0.08)] p-6"
+      >
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium text-[#e8e8e8]">Which do you want to watch more?</p>
+          <button
+            onClick={onClose}
+            className="text-[#888] hover:text-[#e8e8e8] transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-[11px] text-[#888] mb-5">
+          This session: {sessionCount} · Total: {Math.floor(totalComparisons + sessionCount)}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          {[a, b].map((movie) => {
+            const poster = getPosterUrl(movie.posterPath, "large");
+            return (
+              <AnimatePresence key={movie.id + "-" + sessionCount} mode="wait">
+                <motion.button
+                  key={movie.id + "-" + sessionCount}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.2 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => handlePick(movie, movie.id === a.id ? b : a)}
+                  disabled={busy}
+                  className="group relative overflow-hidden rounded-lg bg-[#111] aspect-[2/3] border border-[rgba(255,255,255,0.06)] hover:border-[#ff2d55] transition-colors"
+                >
+                  {poster ? (
+                    <Image
+                      src={poster}
+                      alt={movie.title}
+                      fill
+                      sizes="(max-width: 768px) 45vw, 280px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-[#888]">
+                      {movie.title}
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent pt-10 pb-3 px-3">
+                    <p className="text-sm font-medium text-white truncate">{movie.title}</p>
+                    <p className="text-[11px] text-white/60">
+                      {movie.releaseDate?.slice(0, 4)}
+                    </p>
+                  </div>
+                </motion.button>
+              </AnimatePresence>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between">
+          <button
+            onClick={nextPair}
+            disabled={busy}
+            className="text-xs text-[#888] hover:text-[#e8e8e8] transition-colors"
+          >
+            Skip pair
+          </button>
+          <button
+            onClick={onClose}
+            className="text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }
