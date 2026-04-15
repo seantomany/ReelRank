@@ -268,6 +268,16 @@ export const api = {
         `/api/rooms/${code}/bonus-round`,
         { method: "POST", body: JSON.stringify(data) }
       ),
+    getBonusRound: (code: string) =>
+      apiFetch<{
+        bonusRoundId: string;
+        status: "active" | "completed";
+        movieIds?: number[];
+        movies?: import("@reelrank/shared").Movie[];
+        winnerId?: number | null;
+        movie?: import("@reelrank/shared").Movie | null;
+        votes?: Record<string, number>;
+      } | null>(`/api/rooms/${code}/bonus-round`),
     leave: (code: string) =>
       apiFetch<{ left: boolean }>(`/api/rooms/${code}/leave`, {
         method: "POST",

@@ -31,6 +31,7 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
   const [bonusMovies, setBonusMovies] = useState<Movie[]>([]);
   const [bonusVoted, setBonusVoted] = useState(false);
   const [bonusWinner, setBonusWinner] = useState<Movie | null>(null);
+  const [bonusVoteProgress, setBonusVoteProgress] = useState<{ voteCount: number; totalMembers: number } | null>(null);
   const [roomName, setRoomName] = useState<string>('');
   const [editingName, setEditingName] = useState(false);
 
@@ -86,13 +87,21 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
         setBonusActive(true);
         setBonusVoted(false);
         setBonusWinner(null);
+        setBonusVoteProgress(null);
         if (data.movies && data.movies.length > 0) {
           setBonusMovies(data.movies);
         }
       },
+      onBonusVote: (data) => {
+        setBonusVoteProgress({
+          voteCount: data.voteCount,
+          totalMembers: data.totalMembers,
+        });
+      },
       onBonusCompleted: (data) => {
         setBonusActive(false);
         setBonusVoted(false);
+        setBonusVoteProgress(null);
         if (data.movie) {
           setBonusWinner(data.movie);
           setSnackbar({ visible: true, message: `Bonus round winner: ${data.movie.title}` });
@@ -135,8 +144,11 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
     (m) => m.rightSwipes === m.totalVoters && m.totalVoters > 0
   );
   const hasMultiplePicks = groupPicks.length > 1;
-  const isHost = room?.hostId === user?.uid;
-  const memberCount = (room?.members as any[])?.length ?? 1;
+  const isHost = !!room && !!user && room.hostId === user.uid;
+  const memberCount =
+    (room?.members?.length ?? 0) ||
+    (room?.memberUserIds?.length ?? 0) ||
+    0;
   const isSolo = memberCount <= 1;
 
   const handleStartBonusRound = async () => {
@@ -251,9 +263,13 @@ export function GroupResultsScreen({ navigation, route }: GroupResultsScreenProp
               </TouchableOpacity>
             ))}
           </View>
-          {bonusVoted && (
-            <Text style={styles.bonusWaiting}>Waiting for others...</Text>
-          )}
+          {bonusVoteProgress ? (
+            <Text style={styles.bonusWaiting}>
+              {bonusVoteProgress.voteCount} of {bonusVoteProgress.totalMembers} voted
+            </Text>
+          ) : bonusVoted ? (
+            <Text style={styles.bonusWaiting}>Waiting for others…</Text>
+          ) : null}
         </View>
       )}
 

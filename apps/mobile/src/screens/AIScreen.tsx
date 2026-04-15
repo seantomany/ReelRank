@@ -348,6 +348,8 @@ export function AIScreen({ navigation }: AIScreenProps) {
         style={styles.messagesArea}
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {isEmpty ? (
           <View style={styles.emptyState}>

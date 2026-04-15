@@ -275,17 +275,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Summary stat cards */}
-      <div className="grid grid-cols-4 gap-2 mt-4">
+      <div className="grid grid-cols-3 gap-2 mt-4">
         {loadingStats ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))
         ) : (
           <>
-            <div className="bg-[#111] rounded-lg p-3 text-center">
-              <p className="text-xl font-semibold text-[#e8e8e8] tabular-nums">{rankCount}</p>
-              <p className="text-[10px] text-[#888] mt-0.5">Ranked</p>
-            </div>
             <div className="bg-[#111] rounded-lg p-3 text-center">
               <p className="text-xl font-semibold text-[#e8e8e8] tabular-nums">{watchedCount}</p>
               <p className="text-[10px] text-[#888] mt-0.5">Watched</p>

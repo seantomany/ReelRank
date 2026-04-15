@@ -32,8 +32,13 @@ export default function ResultsPage(props: {
   const [bonusMovies, setBonusMovies] = useState<Movie[]>([]);
   const [bonusVoted, setBonusVoted] = useState(false);
   const [bonusWinner, setBonusWinner] = useState<Movie | null>(null);
+  const [bonusVoteProgress, setBonusVoteProgress] = useState<{ voteCount: number; totalMembers: number } | null>(null);
+  const [hostId, setHostId] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState(0);
   const [groupName, setGroupName] = useState("");
   const [editingName, setEditingName] = useState(false);
+
+  const isHost = !!user && !!hostId && user.uid === hostId;
 
   const fetchResults = useCallback(
     async (retriesLeft = MAX_RETRIES) => {
@@ -59,6 +64,29 @@ export default function ResultsPage(props: {
     fetchResults();
   }, [fetchResults]);
 
+  // Load room info (for host check + member count) and hydrate any existing bonus round state
+  useEffect(() => {
+    let cancelled = false;
+    api.rooms.get(code).then((res) => {
+      if (cancelled || !res.data) return;
+      setHostId(res.data.hostId);
+      setMemberCount(res.data.memberUserIds?.length ?? 0);
+      if (res.data.name) setGroupName(res.data.name);
+    });
+    api.rooms.getBonusRound(code).then((res) => {
+      if (cancelled || !res.data) return;
+      if (res.data.status === "active" && res.data.movies) {
+        setBonusActive(true);
+        setBonusMovies(res.data.movies);
+      } else if (res.data.status === "completed" && res.data.movie) {
+        setBonusWinner(res.data.movie);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
   useEffect(() => {
     const unsubscribe = subscribeToRoom(code, {
       [ABLY_EVENTS.RESULTS_READY]: () => {
@@ -67,12 +95,22 @@ export default function ResultsPage(props: {
       [ABLY_EVENTS.BONUS_STARTED]: (data: unknown) => {
         const payload = data as { movies?: Movie[] };
         setBonusActive(true);
+        setBonusVoted(false);
+        setBonusWinner(null);
+        setBonusVoteProgress(null);
         if (payload.movies) setBonusMovies(payload.movies);
+      },
+      [ABLY_EVENTS.BONUS_VOTE]: (data: unknown) => {
+        const payload = data as { voteCount?: number; totalMembers?: number };
+        if (typeof payload.voteCount === "number" && typeof payload.totalMembers === "number") {
+          setBonusVoteProgress({ voteCount: payload.voteCount, totalMembers: payload.totalMembers });
+        }
       },
       [ABLY_EVENTS.BONUS_COMPLETED]: (data: unknown) => {
         const payload = data as { movie?: Movie };
         setBonusActive(false);
         setBonusVoted(false);
+        setBonusVoteProgress(null);
         if (payload.movie) {
           setBonusWinner(payload.movie);
           toast.success(`Bonus round winner: ${payload.movie.title}`);
@@ -253,7 +291,15 @@ export default function ResultsPage(props: {
         <div className="mb-8 py-4 bg-[#111] rounded-lg px-4">
           <p className="text-xs uppercase tracking-widest text-[#ff2d55] mb-3 text-center">Bonus Round</p>
           <p className="text-xs text-[#888] text-center mb-4">Pick your favorite from the group picks</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div
+            className={`grid gap-3 ${
+              bonusMovies.length <= 2
+                ? "grid-cols-2"
+                : bonusMovies.length === 3
+                  ? "grid-cols-3"
+                  : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+            }`}
+          >
             {bonusMovies.map((m) => {
               const p = getPosterUrl(m.posterPath, "medium");
               return (
@@ -273,7 +319,14 @@ export default function ResultsPage(props: {
               );
             })}
           </div>
-          {bonusVoted && <p className="text-xs text-[#888] text-center mt-3">Waiting for others...</p>}
+          {bonusVoteProgress && (
+            <p className="text-[11px] text-[#888] text-center mt-3 tabular-nums">
+              {bonusVoteProgress.voteCount} of {bonusVoteProgress.totalMembers} voted
+            </p>
+          )}
+          {bonusVoted && !bonusVoteProgress && (
+            <p className="text-xs text-[#888] text-center mt-3">Waiting for others…</p>
+          )}
         </div>
       )}
 
@@ -296,13 +349,16 @@ export default function ResultsPage(props: {
               );
             })}
           </div>
-          {hasMultiplePicks && !bonusActive && !bonusWinner && (
+          {hasMultiplePicks && !bonusActive && !bonusWinner && memberCount > 1 && isHost && (
             <button
               onClick={handleStartBonusRound}
               className="mt-3 text-xs text-[#ff2d55] hover:text-[#e8e8e8] transition-colors underline underline-offset-2"
             >
               Start bonus round to pick one
             </button>
+          )}
+          {hasMultiplePicks && !bonusActive && !bonusWinner && memberCount > 1 && !isHost && (
+            <p className="mt-3 text-[11px] text-[#888]">Waiting for host to start the bonus round…</p>
           )}
         </div>
       )}

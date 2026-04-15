@@ -521,10 +521,14 @@ function SwipeCard({
     else if (cx < -SWIPE_THRESHOLD) onSwipe("left");
   };
 
-  const handleTap = () => {
+  const handleTap = (event: MouseEvent | TouchEvent | PointerEvent) => {
     if (!isTop || disabled) return;
     // Ignore taps that are actually the end of a drag
     if (Math.abs(x.get()) > 4) return;
+    // Ignore taps that originated on the info button (Framer Motion's onTap
+    // fires on the outer motion.div even when a child calls stopPropagation).
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.("[data-info-button]")) return;
     setFlipped((f) => !f);
   };
 
@@ -629,6 +633,7 @@ function SwipeCard({
           {isTop && (
             <Link
               href={`/movie/${movie.id}`}
+              data-info-button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               aria-label="View movie details"
@@ -665,6 +670,7 @@ function SwipeCard({
           {isTop && (
             <Link
               href={`/movie/${movie.id}`}
+              data-info-button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               aria-label="View movie details"

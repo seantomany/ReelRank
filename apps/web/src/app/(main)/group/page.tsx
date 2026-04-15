@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPosterUrl } from "@reelrank/shared";
-import { Pin, PinOff } from "lucide-react";
+import { Pin, Trash2 } from "lucide-react";
 import type { Movie } from "@reelrank/shared";
 
 interface RoomHistoryItem {
@@ -84,6 +84,24 @@ export default function GroupHubPage() {
     } else {
       setPinnedCodes((prev) => [code, ...prev]);
       await api.rooms.pin(code);
+    }
+  };
+
+  const handleDelete = async (room: RoomHistoryItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const label = room.name ? `"${room.name}"` : `room ${room.code}`;
+    const ok = window.confirm(`Remove ${label} from your history?`);
+    if (!ok) return;
+    const prev = history;
+    setHistory((h) => h.filter((r) => r.id !== room.id));
+    setPinnedCodes((p) => p.filter((c) => c !== room.code));
+    const res = await api.rooms.leave(room.code);
+    if (res.error) {
+      toast.error(res.error);
+      setHistory(prev);
+    } else {
+      toast.success("Removed from history");
     }
   };
 
@@ -184,6 +202,14 @@ export default function GroupHubPage() {
                       className="ml-2 h-9 w-6 rounded-sm object-cover"
                     />
                   )}
+                  <button
+                    onClick={(e) => handleDelete(room, e)}
+                    className="ml-2 p-1.5 rounded text-[#555] hover:text-[#ff2d55] hover:bg-[#1a1a1a] transition-colors cursor-pointer shrink-0"
+                    title="Remove from history"
+                    aria-label="Remove from history"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </Link>
               );
             })}

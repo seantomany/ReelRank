@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text, Button, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -50,6 +50,39 @@ export function GroupScreen({ navigation }: GroupScreenProps) {
       loadHistory();
     }, [loadHistory])
   );
+
+  const handleDelete = (room: any) => {
+    const label = room.name ? `"${room.name}"` : `room ${room.code}`;
+    Alert.alert(
+      'Remove room',
+      `Remove ${label} from your history?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            const prev = history;
+            setHistory((h) => h.filter((r: any) => r.id !== room.id));
+            setPinnedCodes((p) => p.filter((c) => c !== room.code));
+            try {
+              const token = await getIdToken();
+              const res = await api.rooms.leave(room.code, token);
+              if (res.error) {
+                setHistory(prev);
+                setSnackbar({ visible: true, message: res.error });
+              } else {
+                setSnackbar({ visible: true, message: 'Removed from history' });
+              }
+            } catch {
+              setHistory(prev);
+              setSnackbar({ visible: true, message: 'Failed to remove room' });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const togglePin = async (code: string) => {
     const isPinned = pinnedCodes.includes(code);
@@ -119,6 +152,7 @@ export function GroupScreen({ navigation }: GroupScreenProps) {
                       navigation.navigate('Lobby', { roomCode: item.code });
                     }
                   }}
+                  onLongPress={() => handleDelete(item)}
                 >
                   <TouchableOpacity
                     style={styles.pinButton}
@@ -143,7 +177,13 @@ export function GroupScreen({ navigation }: GroupScreenProps) {
                       {item.status === 'results' ? 'Done' : item.status === 'lobby' ? 'Open' : item.status}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.deleteButton}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.textTertiary} />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             }}
@@ -241,5 +281,9 @@ const styles = StyleSheet.create({
   pinButton: {
     marginRight: spacing.sm,
     padding: 4,
+  },
+  deleteButton: {
+    marginLeft: spacing.xs,
+    padding: 6,
   },
 });
