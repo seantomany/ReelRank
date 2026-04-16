@@ -156,6 +156,8 @@ export const api = {
       apiFetch('/api/auth/photo', { method: 'POST', body: { photoUrl }, token }),
     removePhoto: (token: string) =>
       apiFetch('/api/auth/photo', { method: 'DELETE', token }),
+    deleteAccount: (token: string) =>
+      apiFetch('/api/auth/account', { method: 'DELETE', token }),
   },
 
   ai: {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Linking, TextInput as RNTextInput, TouchableOpacity, Image } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert, Linking, TextInput as RNTextInput, TouchableOpacity, Image, Modal } from 'react-native';
 import { Text, Switch, Button, Divider, Snackbar, Avatar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,6 +39,9 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [editingUsername, setEditingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -164,6 +167,37 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const openDeleteAccountModal = () => {
+    setDeleteConfirmText('');
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+      setSnackbar({ visible: true, message: 'Please type DELETE to confirm' });
+      return;
+    }
+    setDeleting(true);
+    try {
+      const token = await getIdToken();
+      const res = await api.auth.deleteAccount(token);
+      if (res.error) {
+        setSnackbar({ visible: true, message: res.error });
+        setDeleting(false);
+        return;
+      }
+      setDeleteModalVisible(false);
+      setDeleting(false);
+      await signOut();
+    } catch (err) {
+      setDeleting(false);
+      setSnackbar({
+        visible: true,
+        message: err instanceof Error ? err.message : 'Failed to delete account',
+      });
+    }
   };
 
 
@@ -325,10 +359,80 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           >
             Sign Out
           </Button>
+          <Button
+            mode="contained"
+            onPress={openDeleteAccountModal}
+            style={styles.deleteAccountButton}
+            buttonColor={colors.error}
+            textColor="#ffffff"
+          >
+            Delete Account
+          </Button>
+          <Text style={styles.deleteAccountHint}>
+            Permanently removes your account and all associated data. This cannot be undone.
+          </Text>
         </View>
 
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
+
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deleting && setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.modalBody}>
+              This will permanently delete your ReelRank account and all associated data, including:
+            </Text>
+            <View style={styles.modalBullets}>
+              <Text style={styles.modalBullet}>• Your profile, username, and photo</Text>
+              <Text style={styles.modalBullet}>• All swipes, ratings, and rankings</Text>
+              <Text style={styles.modalBullet}>• Watched movies and watchlist</Text>
+              <Text style={styles.modalBullet}>• Friends, requests, and comments</Text>
+              <Text style={styles.modalBullet}>• Group rooms you created or joined</Text>
+            </View>
+            <Text style={styles.modalBody}>
+              This action is immediate and cannot be undone. To confirm, type <Text style={styles.modalBold}>DELETE</Text> below.
+            </Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="Type DELETE"
+              placeholderTextColor={colors.textTertiary}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={!deleting}
+            />
+            <View style={styles.modalActions}>
+              <Button
+                mode="outlined"
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deleting}
+                style={styles.modalCancelButton}
+                textColor={colors.text}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={confirmDeleteAccount}
+                loading={deleting}
+                disabled={deleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                buttonColor={colors.error}
+                textColor="#ffffff"
+                style={styles.modalConfirmButton}
+              >
+                Delete Forever
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Snackbar
         visible={snackbar.visible}
@@ -392,6 +496,76 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     borderColor: colors.error,
+  },
+  deleteAccountButton: {
+    marginTop: spacing.sm,
+  },
+  deleteAccountHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.error,
+  },
+  modalBody: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalBold: {
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  modalBullets: {
+    gap: spacing.xs,
+    paddingLeft: spacing.xs,
+  },
+  modalBullet: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.text,
+    fontSize: 15,
+    backgroundColor: colors.background,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  modalCancelButton: {
+    flex: 1,
+    borderColor: colors.border,
+  },
+  modalConfirmButton: {
+    flex: 1,
   },
   usernameEditRow: {
     flexDirection: 'row',

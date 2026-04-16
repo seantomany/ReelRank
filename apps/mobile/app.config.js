@@ -12,10 +12,12 @@ export default {
       backgroundColor: '#000000',
     },
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: 'com.reelrank.app',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSPhotoLibraryUsageDescription:
+          'ReelRank needs access to your photo library so you can choose a picture to use as your profile photo. For example, after tapping "Change photo" in Settings, you can pick an image from your library and it will appear on your profile and next to your ratings and comments.',
       },
     },
     android: {

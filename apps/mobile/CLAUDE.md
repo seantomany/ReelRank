@@ -67,7 +67,7 @@ See `DEPLOY_MOBILE.md` at repo root for full TestFlight/EAS workflow.
 - Profile watchlist reorder (up/down chevrons) only updates local state, doesn't persist to server
 - `fix-fmt-consteval` plugin in `plugins/` patches Podfile for Xcode 26 `consteval` issue
 - Metro config has monorepo-aware `watchFolders` pointing to repo root (`../..`)
-- Delete account button in settings shows "contact support" — not implemented yet
+- Delete account flow wired: Settings → Delete Account → typed "DELETE" confirm → `DELETE /api/auth/account` wipes Firestore data + Firebase Auth user
 - Firebase API keys are in `eas.json` in plain text — should move to EAS secrets before public release
 
 ## Auth
